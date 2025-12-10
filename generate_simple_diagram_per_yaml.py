@@ -1,23 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-各 YAML ファイルから完全なアーキテクチャ図を生成（修正版）
-- すべてのリソースを表示
-- !Ref と !GetAtt の関係を自動検出して線で接続
-- DependsOn も考慮
+拡張アイコン対応版
+対応していないリソースタイプには類似のアイコンを使用
 """
 
 import os
 import yaml
-from collections import defaultdict
 from diagrams import Diagram, Cluster, Edge
 from diagrams.aws.network import VPC, InternetGateway, PrivateSubnet, PublicSubnet, NATGateway, ELB, ALB, NLB, Route53, CF, APIGateway, VPCRouter
-from diagrams.aws.compute import EC2, ECS, EKS, Lambda, Batch
-from diagrams.aws.database import RDS, Dynamodb, ElastiCache, Redshift, Neptune
-from diagrams.aws.storage import S3, EBS, EFS, FSx
+from diagrams.aws.compute import EC2, ECS, EKS, Lambda, Batch, ElasticBeanstalk
+from diagrams.aws.database import RDS, Dynamodb, ElastiCache, Redshift, Neptune, Database
+from diagrams.aws.storage import S3, EBS, EFS, FSx, Storage, Backup
 from diagrams.aws.integration import SQS, SNS, Eventbridge, StepFunctions, MQ
-from diagrams.aws.security import IAM, SecretsManager, KMS, WAF
-from diagrams.aws.management import Cloudwatch, SystemsManager, Cloudformation
+from diagrams.aws.security import IAM, SecretsManager, KMS, WAF, Shield, CertificateManager
+from diagrams.aws.management import Cloudwatch, SystemsManager, Cloudformation, Config
 from diagrams.generic.blank import Blank
+from diagrams.generic.storage import Storage as GenericStorage
 
 
 # ==================== CloudFormation YAML タグ処理 ====================
@@ -110,73 +108,166 @@ def parse_yaml(yaml_file):
         return None
 
 
-# ==================== アイコンマッピング ====================
+# ==================== 拡張アイコンマッピング ====================
 
 def get_icon_class(resource_type):
-    """リソースタイプに対応するアイコンクラスを取得"""
+    """リソースタイプに対応するアイコンクラスを取得（拡張版）"""
     
     icon_map = {
-        # ネットワーク
+        # ==================== Network ====================
         'AWS::EC2::VPC': VPC,
         'AWS::EC2::Subnet': PrivateSubnet,
         'AWS::EC2::InternetGateway': InternetGateway,
         'AWS::EC2::VPCGatewayAttachment': InternetGateway,
         'AWS::EC2::NatGateway': NATGateway,
+        'AWS::EC2::EIP': InternetGateway,
+        'AWS::EC2::EIPAssociation': InternetGateway,
         'AWS::EC2::RouteTable': VPCRouter,
         'AWS::EC2::Route': VPCRouter,
         'AWS::EC2::SubnetRouteTableAssociation': VPCRouter,
-        'AWS::EC2::SecurityGroup': VPCRouter,  # SecurityGroup アイコンがないので VPCRouter を使用
+        'AWS::EC2::NetworkInterface': VPCRouter,
+        'AWS::EC2::NetworkAcl': VPCRouter,
+        'AWS::EC2::NetworkAclEntry': VPCRouter,
+        'AWS::EC2::SecurityGroup': VPCRouter,
+        'AWS::EC2::SecurityGroupIngress': VPCRouter,
+        'AWS::EC2::SecurityGroupEgress': VPCRouter,
+        'AWS::EC2::VPCPeeringConnection': VPC,
+        'AWS::EC2::VPCEndpoint': VPC,
+        'AWS::EC2::TransitGateway': VPC,
+        'AWS::EC2::TransitGatewayAttachment': VPC,
         'AWS::ElasticLoadBalancingV2::LoadBalancer': ALB,
         'AWS::ElasticLoadBalancingV2::TargetGroup': ALB,
+        'AWS::ElasticLoadBalancingV2::Listener': ALB,
+        'AWS::ElasticLoadBalancingV2::ListenerRule': ALB,
         'AWS::ElasticLoadBalancing::LoadBalancer': ELB,
         'AWS::Route53::HostedZone': Route53,
+        'AWS::Route53::RecordSet': Route53,
         'AWS::CloudFront::Distribution': CF,
         'AWS::ApiGateway::RestApi': APIGateway,
+        'AWS::ApiGateway::Stage': APIGateway,
+        'AWS::ApiGateway::Deployment': APIGateway,
+        'AWS::ApiGatewayV2::Api': APIGateway,
+        'AWS::ApiGatewayV2::Stage': APIGateway,
         
-        # コンピューティング
+        # ==================== Compute ====================
         'AWS::EC2::Instance': EC2,
+        'AWS::EC2::LaunchTemplate': EC2,
+        'AWS::AutoScaling::AutoScalingGroup': EC2,
+        'AWS::AutoScaling::LaunchConfiguration': EC2,
+        'AWS::AutoScaling::ScalingPolicy': EC2,
         'AWS::ECS::Cluster': ECS,
         'AWS::ECS::Service': ECS,
         'AWS::ECS::TaskDefinition': ECS,
+        'AWS::ECS::CapacityProvider': ECS,
         'AWS::EKS::Cluster': EKS,
+        'AWS::EKS::Nodegroup': EKS,
         'AWS::Lambda::Function': Lambda,
+        'AWS::Lambda::Version': Lambda,
+        'AWS::Lambda::Alias': Lambda,
+        'AWS::Lambda::EventSourceMapping': Lambda,
+        'AWS::Lambda::Permission': Lambda,
+        'AWS::Lambda::LayerVersion': Lambda,
         'AWS::Batch::JobDefinition': Batch,
+        'AWS::Batch::JobQueue': Batch,
+        'AWS::Batch::ComputeEnvironment': Batch,
+        'AWS::ElasticBeanstalk::Application': ElasticBeanstalk,
+        'AWS::ElasticBeanstalk::Environment': ElasticBeanstalk,
         
-        # データベース
+        # ==================== Database ====================
         'AWS::RDS::DBInstance': RDS,
         'AWS::RDS::DBCluster': RDS,
         'AWS::RDS::DBSubnetGroup': RDS,
+        'AWS::RDS::DBParameterGroup': RDS,
+        'AWS::RDS::DBClusterParameterGroup': RDS,
+        'AWS::RDS::OptionGroup': RDS,
         'AWS::DynamoDB::Table': Dynamodb,
+        'AWS::DynamoDB::GlobalTable': Dynamodb,
         'AWS::ElastiCache::CacheCluster': ElastiCache,
         'AWS::ElastiCache::ReplicationGroup': ElastiCache,
+        'AWS::ElastiCache::SubnetGroup': ElastiCache,
+        'AWS::ElastiCache::ParameterGroup': ElastiCache,
         'AWS::Redshift::Cluster': Redshift,
+        'AWS::Redshift::ClusterSubnetGroup': Redshift,
         'AWS::Neptune::DBCluster': Neptune,
+        'AWS::Neptune::DBInstance': Neptune,
+        'AWS::Neptune::DBSubnetGroup': Neptune,
+        'AWS::DocumentDB::DBCluster': Database,
+        'AWS::DocumentDB::DBInstance': Database,
         
-        # ストレージ
+        # ==================== Storage ====================
         'AWS::S3::Bucket': S3,
+        'AWS::S3::BucketPolicy': S3,
+        'AWS::S3::AccessPoint': S3,
         'AWS::EBS::Volume': EBS,
+        'AWS::EBS::Snapshot': EBS,
         'AWS::EFS::FileSystem': EFS,
+        'AWS::EFS::MountTarget': EFS,  # ← 追加
+        'AWS::EFS::AccessPoint': EFS,  # ← 追加
         'AWS::FSx::FileSystem': FSx,
+        'AWS::Backup::BackupVault': Backup,  # ← 追加
+        'AWS::Backup::BackupPlan': Backup,  # ← 追加
+        'AWS::Backup::BackupSelection': Backup,  # ← 追加
+        'AWS::Glacier::Vault': Storage,
         
-        # 統合
+        # ==================== Integration ====================
         'AWS::SQS::Queue': SQS,
+        'AWS::SQS::QueuePolicy': SQS,
         'AWS::SNS::Topic': SNS,
+        'AWS::SNS::Subscription': SNS,
+        'AWS::SNS::TopicPolicy': SNS,
         'AWS::Events::Rule': Eventbridge,
+        'AWS::Events::EventBus': Eventbridge,
+        'AWS::EventSchemas::Registry': Eventbridge,
         'AWS::StepFunctions::StateMachine': StepFunctions,
+        'AWS::StepFunctions::Activity': StepFunctions,
         'AWS::MQ::Broker': MQ,
+        'AWS::MQ::Configuration': MQ,
+        'AWS::Kinesis::Stream': Eventbridge,
+        'AWS::KinesisFirehose::DeliveryStream': Eventbridge,
         
-        # セキュリティ
+        # ==================== Security ====================
         'AWS::IAM::Role': IAM,
         'AWS::IAM::Policy': IAM,
+        'AWS::IAM::User': IAM,
+        'AWS::IAM::Group': IAM,
         'AWS::IAM::InstanceProfile': IAM,
+        'AWS::IAM::ManagedPolicy': IAM,
+        'AWS::IAM::AccessKey': IAM,
         'AWS::SecretsManager::Secret': SecretsManager,
+        'AWS::SecretsManager::SecretTargetAttachment': SecretsManager,
+        'AWS::SecretsManager::RotationSchedule': SecretsManager,
         'AWS::KMS::Key': KMS,
+        'AWS::KMS::Alias': KMS,
         'AWS::WAFv2::WebACL': WAF,
+        'AWS::WAFv2::RuleGroup': WAF,
+        'AWS::WAFv2::IPSet': WAF,
+        'AWS::WAF::WebACL': WAF,
+        'AWS::Shield::Protection': Shield,
+        'AWS::CertificateManager::Certificate': CertificateManager,
         
-        # 管理
+        # ==================== Management ====================
         'AWS::CloudWatch::Alarm': Cloudwatch,
+        'AWS::CloudWatch::Dashboard': Cloudwatch,
+        'AWS::Logs::LogGroup': Cloudwatch,
+        'AWS::Logs::LogStream': Cloudwatch,
+        'AWS::Logs::MetricFilter': Cloudwatch,  # ← 追加
+        'AWS::Logs::SubscriptionFilter': Cloudwatch,
         'AWS::SSM::Parameter': SystemsManager,
+        'AWS::SSM::Document': SystemsManager,
+        'AWS::SSM::MaintenanceWindow': SystemsManager,
+        'AWS::SSM::PatchBaseline': SystemsManager,
         'AWS::CloudFormation::Stack': Cloudformation,
+        'AWS::Config::ConfigRule': Config,
+        'AWS::Config::ConfigurationRecorder': Config,
+        'AWS::CloudTrail::Trail': Cloudwatch,
+        
+        # ==================== その他 ====================
+        'AWS::CodeBuild::Project': ElasticBeanstalk,
+        'AWS::CodePipeline::Pipeline': ElasticBeanstalk,
+        'AWS::CodeDeploy::Application': ElasticBeanstalk,
+        'AWS::CodeDeploy::DeploymentGroup': ElasticBeanstalk,
+        'AWS::CodeCommit::Repository': Storage,
+        'AWS::ECR::Repository': Storage,
     }
     
     return icon_map.get(resource_type)
@@ -218,7 +309,8 @@ def get_resource_label(resource_id, resource_data):
     
     # その他のプロパティから名前を取得
     for key in ['FunctionName', 'DBInstanceIdentifier', 'BucketName', 
-                'TableName', 'ClusterName', 'QueueName', 'TopicName', 'Name']:
+                'TableName', 'ClusterName', 'QueueName', 'TopicName', 'Name',
+                'BackupVaultName', 'BackupPlanName', 'LogGroupName']:
         if key in props:
             name = extract_string_value(props[key])
             if name and not name.startswith('Ref:'):
@@ -327,10 +419,13 @@ def categorize_resources(resources):
         'AWS::EC2::InternetGateway': 'Network',
         'AWS::EC2::VPCGatewayAttachment': 'Network',
         'AWS::EC2::NatGateway': 'Network',
+        'AWS::EC2::EIP': 'Network',
         'AWS::EC2::RouteTable': 'Network',
         'AWS::EC2::Route': 'Network',
         'AWS::EC2::SubnetRouteTableAssociation': 'Network',
         'AWS::EC2::SecurityGroup': 'Security',
+        'AWS::EC2::NetworkInterface': 'Network',
+        'AWS::EC2::VPCEndpoint': 'Network',
         'AWS::ElasticLoadBalancingV2::LoadBalancer': 'Network',
         'AWS::ElasticLoadBalancingV2::TargetGroup': 'Network',
         'AWS::Route53::HostedZone': 'Network',
@@ -338,6 +433,7 @@ def categorize_resources(resources):
         'AWS::ApiGateway::RestApi': 'Network',
         
         'AWS::EC2::Instance': 'Compute',
+        'AWS::AutoScaling::AutoScalingGroup': 'Compute',
         'AWS::ECS::Cluster': 'Compute',
         'AWS::ECS::Service': 'Compute',
         'AWS::ECS::TaskDefinition': 'Compute',
@@ -355,6 +451,11 @@ def categorize_resources(resources):
         'AWS::S3::Bucket': 'Storage',
         'AWS::EBS::Volume': 'Storage',
         'AWS::EFS::FileSystem': 'Storage',
+        'AWS::EFS::MountTarget': 'Storage',
+        'AWS::EFS::AccessPoint': 'Storage',
+        'AWS::Backup::BackupVault': 'Storage',
+        'AWS::Backup::BackupPlan': 'Storage',
+        'AWS::Backup::BackupSelection': 'Storage',
         
         'AWS::SQS::Queue': 'Integration',
         'AWS::SNS::Topic': 'Integration',
@@ -368,6 +469,8 @@ def categorize_resources(resources):
         'AWS::KMS::Key': 'Security',
         
         'AWS::CloudWatch::Alarm': 'Management',
+        'AWS::Logs::LogGroup': 'Management',
+        'AWS::Logs::MetricFilter': 'Management',
         'AWS::SSM::Parameter': 'Management',
     }
     
@@ -404,6 +507,9 @@ def generate_diagram_from_yaml(yaml_file, output_dir='diagrams'):
     
     # リソースをカテゴリ別に分類
     categories = categorize_resources(resources)
+    
+    # 未対応リソースタイプを追跡
+    unsupported_types = set()
     
     # 図を生成
     graph_attr = {
@@ -442,23 +548,27 @@ def generate_diagram_from_yaml(yaml_file, output_dir='diagrams'):
                         label = get_resource_label(resource_id, resource_data)
                         node = Blank(label)
                         nodes[resource_id] = node
-                        print(f"    Warning: No icon for {resource_type} ({resource_id}), using Blank")
+                        unsupported_types.add(resource_type)
         
         # 関係を描画
         for rel in relationships:
             source_id = rel['from']
             target_id = rel['to']
             rel_type = rel['type']
-            label = rel['label']
             
             if source_id in nodes and target_id in nodes:
-                # 関係のタイプによって色を変える
                 if rel_type == 'depends':
                     nodes[source_id] >> Edge(color="red", style="dashed") >> nodes[target_id]
                 elif rel_type == 'ref':
                     nodes[source_id] >> Edge(color="blue", style="solid") >> nodes[target_id]
                 elif rel_type == 'getattr':
                     nodes[source_id] >> Edge(color="green", style="dotted") >> nodes[target_id]
+    
+    # 未対応タイプを表示
+    if unsupported_types:
+        print(f"  Warning: {len(unsupported_types)} unsupported resource type(s) (using Blank icon):")
+        for rt in sorted(unsupported_types):
+            print(f"    - {rt}")
     
     print(f"  -> Generated: {output_filename}.png")
     return f"{output_filename}.png"
@@ -468,7 +578,7 @@ def generate_all_diagrams(input_dir='aws-resources', output_dir='aws-diagrams'):
     """すべての YAML ファイルから図を生成"""
     
     print("="*80)
-    print("CloudFormation Complete Architecture Diagram Generator")
+    print("CloudFormation Architecture Diagram Generator (Extended Icons)")
     print("="*80)
     print(f"\nInput directory: {input_dir}")
     print(f"Output directory: {output_dir}\n")
@@ -483,6 +593,7 @@ def generate_all_diagrams(input_dir='aws-resources', output_dir='aws-diagrams'):
     
     success_count = 0
     error_count = 0
+    all_unsupported = set()
     
     for yaml_file in yaml_files:
         print(f"Processing: {os.path.basename(yaml_file)}")
@@ -510,7 +621,7 @@ def generate_all_diagrams(input_dir='aws-resources', output_dir='aws-diagrams'):
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description='Generate complete architecture diagrams from CloudFormation YAML files')
+    parser = argparse.ArgumentParser(description='Generate architecture diagrams with extended icon support')
     parser.add_argument('--input-dir', default='aws-resources', help='Input directory containing YAML files')
     parser.add_argument('--output-dir', default='aws-diagrams', help='Output directory for diagrams')
     
