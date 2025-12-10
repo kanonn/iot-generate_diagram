@@ -1,6 +1,7 @@
 # Build
 history/
 aws-resources/
+aws-docs/
 
 # IDE
 .idea/
