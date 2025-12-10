@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 CloudFormation YAML から Confluence 用 Word ドキュメントを生成
-1つの YAML ファイル内のすべてのリソースを1つのドキュメントに含める
+すべてのセクションを含む完全版
+ドキュメント内容はすべて英語
 """
 
 import os
@@ -101,7 +102,7 @@ def parse_yaml(yaml_file):
         with open(yaml_file, 'r', encoding='utf-8') as f:
             return yaml.load(f, Loader=CloudFormationYAMLLoader)
     except Exception as e:
-        print(f"    エラー: {yaml_file} の解析に失敗 - {e}")
+        print(f"    Error: Failed to parse {yaml_file} - {e}")
         return None
 
 
@@ -158,10 +159,16 @@ def format_value_compact(value, max_length=100):
             return f"!Select [...]"
         elif 'Fn::GetAZs' in value:
             return f"!GetAZs {value['Fn::GetAZs']}"
+        elif 'Fn::FindInMap' in value:
+            return f"!FindInMap [...]"
         elif 'Fn::Base64' in value:
             return "!Base64 [...]"
         elif 'Fn::If' in value:
             return "!If [...]"
+        elif 'Fn::Equals' in value:
+            return "!Equals [...]"
+        elif 'Fn::Not' in value:
+            return "!Not [...]"
         else:
             # 通常のオブジェクト
             if not value:
@@ -222,9 +229,8 @@ def add_heading_with_style(doc, text, level=1):
     heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
     
     for run in heading.runs:
-        run.font.name = 'Meiryo'
+        run.font.name = 'Arial'
         run.font.color.rgb = RGBColor(0, 51, 102)
-        run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Meiryo')
     
     return heading
 
@@ -300,18 +306,23 @@ def flatten_dict(d, parent_key='', sep='.', max_depth=5, current_depth=0):
 
 
 def generate_word_document(yaml_file, output_dir='docs'):
-    """単一の YAML ファイルから Word ドキュメントを生成（すべてのリソースを含む）"""
+    """単一の YAML ファイルから Word ドキュメントを生成（完全版）"""
     
     template = parse_yaml(yaml_file)
-    if not template or 'Resources' not in template:
-        print(f"  スキップ: {yaml_file} - リソースが見つかりません")
+    if not template:
+        print(f"  Skip: {yaml_file} - Failed to parse")
         return None
     
     os.makedirs(output_dir, exist_ok=True)
     
-    # すべてのリソースを取得
-    all_resources = template['Resources']
+    # 各セクションを取得
+    template_version = template.get('AWSTemplateFormatVersion', '')
     template_description = template.get('Description', '')
+    parameters = template.get('Parameters', {})
+    mappings = template.get('Mappings', {})
+    conditions = template.get('Conditions', {})
+    resources = template.get('Resources', {})
+    outputs = template.get('Outputs', {})
     
     # ドキュメント作成
     doc = Document()
@@ -325,191 +336,341 @@ def generate_word_document(yaml_file, output_dir='docs'):
     core_properties.title = yaml_basename
     core_properties.created = datetime.now()
     
-    # ==================== タイトル ====================
+    # ==================== Title ====================
     
     title = doc.add_heading(yaml_basename, level=1)
     for run in title.runs:
-        run.font.name = 'Meiryo'
+        run.font.name = 'Arial'
         run.font.color.rgb = RGBColor(0, 51, 102)
-        run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Meiryo')
     
-    # ==================== 説明 ====================
+    # ==================== Template Information ====================
     
-    if template_description:
-        add_heading_with_style(doc, '説明', level=2)
-        doc.add_paragraph(template_description)
-        doc.add_paragraph()
+    add_heading_with_style(doc, 'Template Information', level=2)
     
-    # ==================== リソース概要 ====================
-    
-    add_heading_with_style(doc, 'リソース概要', level=2)
-    doc.add_paragraph(f'このテンプレートには {len(all_resources)} 個のリソースが含まれています。')
-    doc.add_paragraph()
-    
-    # リソース一覧テーブル
-    overview_table = doc.add_table(rows=len(all_resources) + 1, cols=3)
-    overview_table.style = 'Light Grid Accent 1'
+    info_table = doc.add_table(rows=2, cols=2)
+    info_table.style = 'Light Grid Accent 1'
     
     # ヘッダー
-    overview_table.rows[0].cells[0].text = 'リソース ID'
-    overview_table.rows[0].cells[1].text = 'リソース名'
-    overview_table.rows[0].cells[2].text = 'タイプ'
+    info_table.rows[0].cells[0].text = 'Property'
+    info_table.rows[0].cells[1].text = 'Value'
     
-    for cell in overview_table.rows[0].cells:
+    for cell in info_table.rows[0].cells:
         cell.paragraphs[0].runs[0].font.bold = True
         cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
         shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
         cell._element.get_or_add_tcPr().append(shading_elm)
     
-    # データ行
-    for idx, (resource_id, resource_data) in enumerate(all_resources.items(), start=1):
-        resource_type = resource_data.get('Type', 'Unknown')
-        resource_name = get_resource_name(resource_data, resource_id)
-        
-        overview_table.rows[idx].cells[0].text = resource_id
-        overview_table.rows[idx].cells[1].text = resource_name
-        overview_table.rows[idx].cells[2].text = resource_type
+    info_table.rows[1].cells[0].text = 'AWSTemplateFormatVersion'
+    info_table.rows[1].cells[1].text = template_version if template_version else 'N/A'
     
     doc.add_paragraph()
-    doc.add_page_break()
     
-    # ==================== 各リソースの詳細 ====================
+    # ==================== Description ====================
     
-    for resource_idx, (resource_id, resource_data) in enumerate(all_resources.items(), start=1):
+    if template_description:
+        add_heading_with_style(doc, 'Description', level=2)
+        doc.add_paragraph(template_description)
+        doc.add_paragraph()
+    
+    # ==================== Parameters ====================
+    
+    if parameters:
+        add_heading_with_style(doc, 'Parameters', level=2)
+        doc.add_paragraph(f'This template defines {len(parameters)} parameter(s).')
+        doc.add_paragraph()
         
-        resource_type = resource_data.get('Type', 'Unknown')
-        resource_props = resource_data.get('Properties', {})
-        resource_name = get_resource_name(resource_data, resource_id)
+        for param_name, param_data in parameters.items():
+            add_heading_with_style(doc, param_name, level=3)
+            
+            # パラメータ詳細テーブル
+            param_items = flatten_dict(param_data)
+            
+            if param_items:
+                param_table = doc.add_table(rows=len(param_items) + 1, cols=2)
+                param_table.style = 'Light Grid Accent 1'
+                
+                param_table.rows[0].cells[0].text = 'Property'
+                param_table.rows[0].cells[1].text = 'Value'
+                
+                for cell in param_table.rows[0].cells:
+                    cell.paragraphs[0].runs[0].font.bold = True
+                    cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                    shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
+                    cell._element.get_or_add_tcPr().append(shading_elm)
+                
+                for idx, (key, value) in enumerate(param_items, start=1):
+                    param_table.rows[idx].cells[0].text = key
+                    param_table.rows[idx].cells[1].text = str(value)
+            
+            doc.add_paragraph()
+    
+    # ==================== Mappings ====================
+    
+    if mappings:
+        add_heading_with_style(doc, 'Mappings', level=2)
+        doc.add_paragraph(f'This template defines {len(mappings)} mapping(s).')
+        doc.add_paragraph()
         
-        # リソースタイトル
-        add_heading_with_style(doc, f'{resource_idx}. {resource_name}', level=2)
+        for mapping_name, mapping_data in mappings.items():
+            add_heading_with_style(doc, mapping_name, level=3)
+            
+            # マッピング詳細テーブル
+            mapping_items = flatten_dict(mapping_data)
+            
+            if mapping_items:
+                mapping_table = doc.add_table(rows=len(mapping_items) + 1, cols=2)
+                mapping_table.style = 'Light Grid Accent 1'
+                
+                mapping_table.rows[0].cells[0].text = 'Key Path'
+                mapping_table.rows[0].cells[1].text = 'Value'
+                
+                for cell in mapping_table.rows[0].cells:
+                    cell.paragraphs[0].runs[0].font.bold = True
+                    cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                    shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
+                    cell._element.get_or_add_tcPr().append(shading_elm)
+                
+                for idx, (key, value) in enumerate(mapping_items, start=1):
+                    mapping_table.rows[idx].cells[0].text = key
+                    mapping_table.rows[idx].cells[1].text = str(value)
+            
+            doc.add_paragraph()
+    
+    # ==================== Conditions ====================
+    
+    if conditions:
+        add_heading_with_style(doc, 'Conditions', level=2)
+        doc.add_paragraph(f'This template defines {len(conditions)} condition(s).')
+        doc.add_paragraph()
         
-        # 基本情報テーブル
-        info_table = doc.add_table(rows=3, cols=2)
-        info_table.style = 'Light Grid Accent 1'
+        # Conditions テーブル
+        cond_table = doc.add_table(rows=len(conditions) + 1, cols=2)
+        cond_table.style = 'Light Grid Accent 1'
+        
+        cond_table.rows[0].cells[0].text = 'Condition Name'
+        cond_table.rows[0].cells[1].text = 'Expression'
+        
+        for cell in cond_table.rows[0].cells:
+            cell.paragraphs[0].runs[0].font.bold = True
+            cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+            shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
+            cell._element.get_or_add_tcPr().append(shading_elm)
+        
+        for idx, (cond_name, cond_expr) in enumerate(conditions.items(), start=1):
+            cond_table.rows[idx].cells[0].text = cond_name
+            cond_table.rows[idx].cells[1].text = format_value_compact(cond_expr, 200)
+        
+        doc.add_paragraph()
+    
+    # ==================== Resources Overview ====================
+    
+    if resources:
+        add_heading_with_style(doc, 'Resources', level=2)
+        doc.add_paragraph(f'This template contains {len(resources)} resource(s).')
+        doc.add_paragraph()
+        
+        # リソース一覧テーブル
+        overview_table = doc.add_table(rows=len(resources) + 1, cols=3)
+        overview_table.style = 'Light Grid Accent 1'
         
         # ヘッダー
-        info_table.rows[0].cells[0].text = 'プロパティ'
-        info_table.rows[0].cells[1].text = '値'
+        overview_table.rows[0].cells[0].text = 'Resource ID'
+        overview_table.rows[0].cells[1].text = 'Resource Name'
+        overview_table.rows[0].cells[2].text = 'Type'
         
-        for cell in info_table.rows[0].cells:
+        for cell in overview_table.rows[0].cells:
             cell.paragraphs[0].runs[0].font.bold = True
             cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
             shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
             cell._element.get_or_add_tcPr().append(shading_elm)
         
         # データ行
-        info_table.rows[1].cells[0].text = 'リソース ID'
-        info_table.rows[1].cells[1].text = resource_id
-        
-        info_table.rows[2].cells[0].text = 'リソースタイプ'
-        info_table.rows[2].cells[1].text = resource_type
+        for idx, (resource_id, resource_data) in enumerate(resources.items(), start=1):
+            resource_type = resource_data.get('Type', 'Unknown')
+            resource_name = get_resource_name(resource_data, resource_id)
+            
+            overview_table.rows[idx].cells[0].text = resource_id
+            overview_table.rows[idx].cells[1].text = resource_name
+            overview_table.rows[idx].cells[2].text = resource_type
         
         doc.add_paragraph()
+        doc.add_page_break()
         
-        # ==================== プロパティ詳細 ====================
+        # ==================== Resource Details ====================
         
-        if resource_props:
-            add_heading_with_style(doc, 'プロパティ詳細', level=3)
-            
-            # プロパティを平坦化
-            flattened = flatten_dict(resource_props)
-            
-            if flattened:
-                # テーブル作成
-                prop_table = doc.add_table(rows=len(flattened) + 1, cols=2)
-                prop_table.style = 'Light Grid Accent 1'
-                
-                # ヘッダー
-                prop_table.rows[0].cells[0].text = 'プロパティパス'
-                prop_table.rows[0].cells[1].text = '値'
-                
-                for cell in prop_table.rows[0].cells:
-                    cell.paragraphs[0].runs[0].font.bold = True
-                    cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
-                    shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
-                    cell._element.get_or_add_tcPr().append(shading_elm)
-                
-                # データ行
-                for idx, (key, value) in enumerate(flattened, start=1):
-                    prop_table.rows[idx].cells[0].text = key
-                    prop_table.rows[idx].cells[1].text = str(value)
-            else:
-                doc.add_paragraph('プロパティが設定されていません。')
-        else:
-            doc.add_paragraph('このリソースにはプロパティが設定されていません。')
-        
+        add_heading_with_style(doc, 'Resource Details', level=2)
         doc.add_paragraph()
         
-        # ==================== 参照と依存関係 ====================
-        
-        refs = []
-        getattrs = []
-        
-        def find_references(obj, path=""):
-            """再帰的に Ref と GetAtt を検索"""
-            if isinstance(obj, dict):
-                if 'Ref' in obj:
-                    refs.append((path, obj['Ref']))
-                elif 'Fn::GetAtt' in obj:
-                    getattrs.append((path, obj['Fn::GetAtt']))
-                else:
-                    for key, value in obj.items():
-                        find_references(value, f"{path}.{key}" if path else key)
-            elif isinstance(obj, list):
-                for idx, item in enumerate(obj):
-                    find_references(item, f"{path}[{idx}]")
-        
-        find_references(resource_props)
-        
-        if refs or getattrs:
-            add_heading_with_style(doc, '参照と依存関係', level=3)
+        for resource_idx, (resource_id, resource_data) in enumerate(resources.items(), start=1):
             
-            if refs:
-                doc.add_paragraph('リソース参照 (!Ref):', style='List Bullet')
-                for path, ref in refs:
-                    doc.add_paragraph(f'{path} → {ref}', style='List Bullet 2')
+            resource_type = resource_data.get('Type', 'Unknown')
+            resource_props = resource_data.get('Properties', {})
+            resource_name = get_resource_name(resource_data, resource_id)
             
-            if getattrs:
-                doc.add_paragraph('属性参照 (!GetAtt):', style='List Bullet')
-                for path, getatt in getattrs:
-                    if isinstance(getatt, list):
-                        doc.add_paragraph(f'{path} → {getatt[0]}.{getatt[1]}', style='List Bullet 2')
-                    else:
-                        doc.add_paragraph(f'{path} → {getatt}', style='List Bullet 2')
-        
-        # ==================== タグ ====================
-        
-        tags = resource_props.get('Tags', [])
-        
-        if tags:
-            doc.add_paragraph()
-            add_heading_with_style(doc, 'タグ', level=3)
+            # リソースタイトル
+            add_heading_with_style(doc, f'{resource_idx}. {resource_name}', level=3)
             
-            tag_table = doc.add_table(rows=len(tags) + 1, cols=2)
-            tag_table.style = 'Light Grid Accent 1'
+            # 基本情報テーブル
+            info_table = doc.add_table(rows=3, cols=2)
+            info_table.style = 'Light Grid Accent 1'
             
-            tag_table.rows[0].cells[0].text = 'キー'
-            tag_table.rows[0].cells[1].text = '値'
+            # ヘッダー
+            info_table.rows[0].cells[0].text = 'Property'
+            info_table.rows[0].cells[1].text = 'Value'
             
-            for cell in tag_table.rows[0].cells:
+            for cell in info_table.rows[0].cells:
                 cell.paragraphs[0].runs[0].font.bold = True
                 cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
                 shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
                 cell._element.get_or_add_tcPr().append(shading_elm)
             
-            for idx, tag in enumerate(tags, start=1):
-                if isinstance(tag, dict):
-                    key = extract_string_value(tag.get('Key', ''))
-                    value = extract_string_value(tag.get('Value', ''))
-                    tag_table.rows[idx].cells[0].text = key
-                    tag_table.rows[idx].cells[1].text = value
-        
-        # 最後のリソースでなければ改ページ
-        if resource_idx < len(all_resources):
-            doc.add_page_break()
+            # データ行
+            info_table.rows[1].cells[0].text = 'Resource ID'
+            info_table.rows[1].cells[1].text = resource_id
+            
+            info_table.rows[2].cells[0].text = 'Resource Type'
+            info_table.rows[2].cells[1].text = resource_type
+            
+            doc.add_paragraph()
+            
+            # ==================== Properties ====================
+            
+            if resource_props:
+                add_heading_with_style(doc, 'Properties', level=4)
+                
+                # プロパティを平坦化
+                flattened = flatten_dict(resource_props)
+                
+                if flattened:
+                    # テーブル作成
+                    prop_table = doc.add_table(rows=len(flattened) + 1, cols=2)
+                    prop_table.style = 'Light Grid Accent 1'
+                    
+                    # ヘッダー
+                    prop_table.rows[0].cells[0].text = 'Property Path'
+                    prop_table.rows[0].cells[1].text = 'Value'
+                    
+                    for cell in prop_table.rows[0].cells:
+                        cell.paragraphs[0].runs[0].font.bold = True
+                        cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                        shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
+                        cell._element.get_or_add_tcPr().append(shading_elm)
+                    
+                    # データ行
+                    for idx, (key, value) in enumerate(flattened, start=1):
+                        prop_table.rows[idx].cells[0].text = key
+                        prop_table.rows[idx].cells[1].text = str(value)
+                else:
+                    doc.add_paragraph('No properties configured.')
+            else:
+                doc.add_paragraph('No properties configured for this resource.')
+            
+            doc.add_paragraph()
+            
+            # ==================== References ====================
+            
+            refs = []
+            getattrs = []
+            
+            def find_references(obj, path=""):
+                """再帰的に Ref と GetAtt を検索"""
+                if isinstance(obj, dict):
+                    if 'Ref' in obj:
+                        refs.append((path, obj['Ref']))
+                    elif 'Fn::GetAtt' in obj:
+                        getattrs.append((path, obj['Fn::GetAtt']))
+                    else:
+                        for key, value in obj.items():
+                            find_references(value, f"{path}.{key}" if path else key)
+                elif isinstance(obj, list):
+                    for idx, item in enumerate(obj):
+                        find_references(item, f"{path}[{idx}]")
+            
+            find_references(resource_props)
+            
+            if refs or getattrs:
+                add_heading_with_style(doc, 'References and Dependencies', level=4)
+                
+                if refs:
+                    doc.add_paragraph('Resource References (!Ref):', style='List Bullet')
+                    for path, ref in refs:
+                        doc.add_paragraph(f'{path} -> {ref}', style='List Bullet 2')
+                
+                if getattrs:
+                    doc.add_paragraph('Attribute References (!GetAtt):', style='List Bullet')
+                    for path, getatt in getattrs:
+                        if isinstance(getatt, list):
+                            doc.add_paragraph(f'{path} -> {getatt[0]}.{getatt[1]}', style='List Bullet 2')
+                        else:
+                            doc.add_paragraph(f'{path} -> {getatt}', style='List Bullet 2')
+            
+            # ==================== Tags ====================
+            
+            tags = resource_props.get('Tags', [])
+            
+            if tags:
+                doc.add_paragraph()
+                add_heading_with_style(doc, 'Tags', level=4)
+                
+                tag_table = doc.add_table(rows=len(tags) + 1, cols=2)
+                tag_table.style = 'Light Grid Accent 1'
+                
+                tag_table.rows[0].cells[0].text = 'Key'
+                tag_table.rows[0].cells[1].text = 'Value'
+                
+                for cell in tag_table.rows[0].cells:
+                    cell.paragraphs[0].runs[0].font.bold = True
+                    cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                    shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
+                    cell._element.get_or_add_tcPr().append(shading_elm)
+                
+                for idx, tag in enumerate(tags, start=1):
+                    if isinstance(tag, dict):
+                        key = extract_string_value(tag.get('Key', ''))
+                        value = extract_string_value(tag.get('Value', ''))
+                        tag_table.rows[idx].cells[0].text = key
+                        tag_table.rows[idx].cells[1].text = value
+            
+            # 最後のリソースでなければ区切り線
+            if resource_idx < len(resources):
+                doc.add_paragraph()
+                doc.add_paragraph('_' * 80)
+                doc.add_paragraph()
     
-    # ==================== 保存 ====================
+    # ==================== Outputs ====================
+    
+    if outputs:
+        doc.add_page_break()
+        add_heading_with_style(doc, 'Outputs', level=2)
+        doc.add_paragraph(f'This template defines {len(outputs)} output(s).')
+        doc.add_paragraph()
+        
+        for output_name, output_data in outputs.items():
+            add_heading_with_style(doc, output_name, level=3)
+            
+            # Output 詳細テーブル
+            output_items = flatten_dict(output_data)
+            
+            if output_items:
+                output_table = doc.add_table(rows=len(output_items) + 1, cols=2)
+                output_table.style = 'Light Grid Accent 1'
+                
+                output_table.rows[0].cells[0].text = 'Property'
+                output_table.rows[0].cells[1].text = 'Value'
+                
+                for cell in output_table.rows[0].cells:
+                    cell.paragraphs[0].runs[0].font.bold = True
+                    cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                    shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
+                    cell._element.get_or_add_tcPr().append(shading_elm)
+                
+                for idx, (key, value) in enumerate(output_items, start=1):
+                    output_table.rows[idx].cells[0].text = key
+                    output_table.rows[idx].cells[1].text = str(value)
+            
+            doc.add_paragraph()
+    
+    # ==================== Save ====================
     
     # ファイル名を安全にする
     safe_name = yaml_basename.replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-')
@@ -527,10 +688,10 @@ def generate_all_docs(input_dir='aws-resources', output_dir='aws-docs'):
     """すべての YAML ファイルからドキュメントを生成"""
     
     print("="*80)
-    print("CloudFormation ドキュメント生成ツール (Confluence 用 - すべてのリソース)")
+    print("CloudFormation Documentation Generator (Complete - English)")
     print("="*80)
-    print(f"\n入力ディレクトリ: {input_dir}")
-    print(f"出力ディレクトリ: {output_dir}\n")
+    print(f"\nInput directory: {input_dir}")
+    print(f"Output directory: {output_dir}\n")
     
     yaml_files = []
     for root, dirs, files in os.walk(input_dir):
@@ -538,41 +699,41 @@ def generate_all_docs(input_dir='aws-resources', output_dir='aws-docs'):
             if file.endswith('.yaml') or file.endswith('.yml'):
                 yaml_files.append(os.path.join(root, file))
     
-    print(f"{len(yaml_files)} 個の YAML ファイルが見つかりました\n")
+    print(f"Found {len(yaml_files)} YAML file(s)\n")
     
     success_count = 0
     error_count = 0
     
     for yaml_file in yaml_files:
-        print(f"処理中: {os.path.basename(yaml_file)}")
+        print(f"Processing: {os.path.basename(yaml_file)}")
         
         try:
             output_file = generate_word_document(yaml_file, output_dir)
             if output_file:
-                print(f"  -> 生成完了: {os.path.basename(output_file)}")
+                print(f"  -> Generated: {os.path.basename(output_file)}")
                 success_count += 1
             else:
                 error_count += 1
         except Exception as e:
-            print(f"  -> エラー: {e}")
+            print(f"  -> Error: {e}")
             import traceback
             traceback.print_exc()
             error_count += 1
     
     print("\n" + "="*80)
-    print(f"完了！")
-    print(f"  成功: {success_count} ドキュメント")
-    print(f"  エラー: {error_count} ファイル")
-    print(f"出力ディレクトリ: {os.path.abspath(output_dir)}")
+    print(f"Complete!")
+    print(f"  Success: {success_count} document(s)")
+    print(f"  Errors: {error_count} file(s)")
+    print(f"Output directory: {os.path.abspath(output_dir)}")
     print("="*80)
 
 
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description='CloudFormation YAML から Word ドキュメントを生成（すべてのリソース）')
-    parser.add_argument('--input-dir', default='aws-resources', help='YAML ファイルが含まれる入力ディレクトリ')
-    parser.add_argument('--output-dir', default='aws-docs', help='Word ドキュメントの出力ディレクトリ')
+    parser = argparse.ArgumentParser(description='Generate Word documentation from CloudFormation YAML files (Complete version)')
+    parser.add_argument('--input-dir', default='aws-resources', help='Input directory containing YAML files')
+    parser.add_argument('--output-dir', default='aws-docs', help='Output directory for Word documents')
     
     args = parser.parse_args()
     
