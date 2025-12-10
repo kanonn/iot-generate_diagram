@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-修复版 - 完整支持 CloudFormation YAML 标签
+CloudFormation YAML から Confluence 用 Word ドキュメントを生成
+1つの YAML ファイル内のすべてのリソースを1つのドキュメントに含める
 """
 
 import os
@@ -12,10 +13,10 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 
 
-# ==================== CloudFormation YAML 标签处理 ====================
+# ==================== CloudFormation YAML タグ処理 ====================
 
 class CloudFormationYAMLLoader(yaml.SafeLoader):
-    """自定义 YAML Loader 支持 CloudFormation 标签"""
+    """CloudFormation タグをサポートするカスタム YAML Loader"""
     pass
 
 
@@ -75,7 +76,7 @@ def or_constructor(loader, node):
     return {'Fn::Or': loader.construct_sequence(node)}
 
 
-# 注册所有标签
+# すべてのタグを登録
 CloudFormationYAMLLoader.add_constructor('!Ref', ref_constructor)
 CloudFormationYAMLLoader.add_constructor('!GetAtt', getatt_constructor)
 CloudFormationYAMLLoader.add_constructor('!Sub', sub_constructor)
@@ -95,49 +96,46 @@ CloudFormationYAMLLoader.add_constructor('!Or', or_constructor)
 
 
 def parse_yaml(yaml_file):
-    """解析 CloudFormation YAML 文件"""
+    """CloudFormation YAML ファイルを解析"""
     try:
         with open(yaml_file, 'r', encoding='utf-8') as f:
             return yaml.load(f, Loader=CloudFormationYAMLLoader)
     except Exception as e:
-        print(f"    Error parsing {yaml_file}: {e}")
+        print(f"    エラー: {yaml_file} の解析に失敗 - {e}")
         return None
 
 
-# ==================== 辅助函数 ====================
+# ==================== ヘルパー関数 ====================
 
 def extract_string_value(value):
-    """从可能包含内置函数的值中提取字符串"""
+    """組み込み関数を含む可能性のある値から文字列を抽出"""
     if isinstance(value, str):
         return value
     elif isinstance(value, dict):
         if 'Ref' in value:
-            return f"Ref:{value['Ref']}"
+            return f"!Ref {value['Ref']}"
         elif 'Fn::Sub' in value:
             sub_value = value['Fn::Sub']
             if isinstance(sub_value, str):
-                return sub_value
+                return f"!Sub {sub_value}"
             else:
-                return str(sub_value[0]) if sub_value else "Sub:..."
-        elif 'Fn::Join' in value:
-            return "Join:..."
+                return f"!Sub [{sub_value[0] if sub_value else '...'}]"
         elif 'Fn::GetAtt' in value:
             attrs = value['Fn::GetAtt']
             if isinstance(attrs, list):
-                return f"GetAtt:{attrs[0]}.{attrs[1]}"
+                return f"!GetAtt {attrs[0]}.{attrs[1]}"
             else:
-                return f"GetAtt:{attrs}"
+                return f"!GetAtt {attrs}"
         else:
             return str(value)
     else:
         return str(value)
 
 
-def format_intrinsic_function(value, indent=0):
-    """格式化 CloudFormation 内置函数显示"""
-    indent_str = "  " * indent
-    
+def format_value_compact(value, max_length=100):
+    """値をコンパクトにフォーマット（テーブル表示用）"""
     if isinstance(value, dict):
+        # 組み込み関数の場合
         if 'Ref' in value:
             return f"!Ref {value['Ref']}"
         elif 'Fn::GetAtt' in value:
@@ -149,63 +147,60 @@ def format_intrinsic_function(value, indent=0):
         elif 'Fn::Sub' in value:
             sub_value = value['Fn::Sub']
             if isinstance(sub_value, str):
-                if len(sub_value) > 60:
-                    return f"!Sub '{sub_value[:57]}...'"
-                return f"!Sub '{sub_value}'"
+                if len(sub_value) > max_length:
+                    return f"!Sub {sub_value[:max_length-10]}..."
+                return f"!Sub {sub_value}"
             else:
-                return f"!Sub [{sub_value[0] if sub_value else '...'}]"
+                return f"!Sub [...]"
         elif 'Fn::Join' in value:
-            join_parts = value['Fn::Join']
-            delimiter = join_parts[0]
-            return f"!Join ['{delimiter}', [...]]"
+            return f"!Join [...]"
         elif 'Fn::Select' in value:
-            select_parts = value['Fn::Select']
-            return f"!Select [{select_parts[0]}, ...]"
+            return f"!Select [...]"
         elif 'Fn::GetAZs' in value:
             return f"!GetAZs {value['Fn::GetAZs']}"
-        elif 'Fn::ImportValue' in value:
-            return f"!ImportValue {value['Fn::ImportValue']}"
-        elif 'Fn::Split' in value:
-            return f"!Split [{value['Fn::Split'][0]}, ...]"
-        elif 'Fn::FindInMap' in value:
-            return f"!FindInMap [{value['Fn::FindInMap'][0]}, ...]"
-        elif 'Fn::Cidr' in value:
-            return f"!Cidr [...]"
         elif 'Fn::Base64' in value:
-            return f"!Base64 ..."
+            return "!Base64 [...]"
         elif 'Fn::If' in value:
-            return f"!If [Condition, TrueValue, FalseValue]"
+            return "!If [...]"
         else:
+            # 通常のオブジェクト
             if not value:
                 return "{}"
-            lines = ["{"]
-            for k, v in value.items():
-                formatted = format_intrinsic_function(v, indent + 1)
-                lines.append(f"{indent_str}  {k}: {formatted}")
-            lines.append(f"{indent_str}}}")
-            return "\n".join(lines)
+            items = []
+            for k, v in list(value.items())[:3]:
+                items.append(f"{k}: {format_value_compact(v, 30)}")
+            result = "{" + ", ".join(items)
+            if len(value) > 3:
+                result += ", ..."
+            result += "}"
+            return result
     
     elif isinstance(value, list):
         if not value:
             return "[]"
         if len(value) == 1:
-            return f"[{format_intrinsic_function(value[0])}]"
+            return f"[{format_value_compact(value[0], 30)}]"
         
-        simple = all(isinstance(v, (str, int, bool)) for v in value)
-        if simple and len(value) <= 3:
-            return f"[{', '.join(str(v) for v in value)}]"
+        # シンプルな値のリスト
+        if all(isinstance(v, (str, int, bool)) for v in value):
+            if len(value) <= 3:
+                return f"[{', '.join(str(v) for v in value)}]"
+            else:
+                return f"[{', '.join(str(v) for v in value[:3])}, ... ({len(value)} items)]"
         
-        lines = ["["]
-        for item in value:
-            formatted = format_intrinsic_function(item, indent + 1)
-            lines.append(f"{indent_str}  - {formatted}")
-        lines.append(f"{indent_str}]")
-        return "\n".join(lines)
+        # 複雑な値のリスト
+        return f"[{len(value)} items]"
     
     elif isinstance(value, str):
-        if len(value) > 60:
-            return f'"{value[:57]}..."'
+        if len(value) > max_length:
+            return f'"{value[:max_length-3]}..."'
         return f'"{value}"'
+    
+    elif isinstance(value, bool):
+        return str(value)
+    
+    elif isinstance(value, (int, float)):
+        return str(value)
     
     else:
         return str(value)
@@ -222,49 +217,33 @@ def nsdecls(*prefixes):
 
 
 def add_heading_with_style(doc, text, level=1):
+    """スタイル付き見出しを追加"""
     heading = doc.add_heading(text, level=level)
     heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
     
     for run in heading.runs:
-        run.font.name = 'Microsoft YaHei'
+        run.font.name = 'Meiryo'
         run.font.color.rgb = RGBColor(0, 51, 102)
-        run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Microsoft YaHei')
+        run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Meiryo')
     
     return heading
 
 
-def add_code_block(doc, code_text):
-    paragraph = doc.add_paragraph()
-    paragraph.style = 'Normal'
-    
-    run = paragraph.add_run(code_text)
-    run.font.name = 'Consolas'
-    run.font.size = Pt(9)
-    run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Consolas')
-    
-    paragraph.paragraph_format.left_indent = Inches(0.3)
-    paragraph.paragraph_format.space_before = Pt(6)
-    paragraph.paragraph_format.space_after = Pt(6)
-    
-    return paragraph
-
-
 def get_resource_name(resource_info, resource_id):
-    """获取资源名称（修复版）"""
+    """リソース名を取得"""
     props = resource_info.get('Properties', {})
     
-    # 尝试从 Tags 获取
+    # Tags から取得を試みる
     tags = props.get('Tags', [])
     if tags:
         for tag in tags:
             if isinstance(tag, dict) and tag.get('Key') == 'Name':
                 name_value = tag.get('Value')
-                # 提取字符串值
                 name = extract_string_value(name_value)
                 if name and name != 'Name':
                     return name
     
-    # 从其他属性获取
+    # その他のプロパティから取得を試みる
     for key in ['FunctionName', 'DBInstanceIdentifier', 'BucketName', 
                 'TableName', 'ClusterName', 'QueueName', 'TopicName', 'Name']:
         if key in props:
@@ -273,291 +252,267 @@ def get_resource_name(resource_info, resource_id):
             if name:
                 return name
     
-    # 如果都没有，返回 resource_id
+    # 見つからない場合は resource_id を返す
     return resource_id
 
 
-def get_resource_description(resource_type):
-    descriptions = {
-        'AWS::EC2::VPC': 'Amazon Virtual Private Cloud - 虚拟私有云，提供隔离的网络环境',
-        'AWS::EC2::Subnet': '子网 - VPC 内的网络分段，可以是公有或私有',
-        'AWS::EC2::InternetGateway': '互联网网关 - 允许 VPC 与互联网通信',
-        'AWS::EC2::VPCGatewayAttachment': 'VPC 网关连接 - 将 Internet Gateway 连接到 VPC',
-        'AWS::EC2::RouteTable': '路由表 - 定义网络流量的路由规则',
-        'AWS::EC2::Route': '路由 - 路由表中的单条路由规则',
-        'AWS::EC2::SubnetRouteTableAssociation': '子网路由表关联 - 将路由表关联到子网',
-        'AWS::EC2::NatGateway': 'NAT 网关 - 允许私有子网中的资源访问互联网',
-        'AWS::EC2::SecurityGroup': '安全组 - 虚拟防火墙，控制入站和出站流量',
-        'AWS::EC2::Instance': 'EC2 实例 - 虚拟服务器',
-        'AWS::ECS::Cluster': 'ECS 集群 - 容器编排服务集群',
-        'AWS::Lambda::Function': 'Lambda 函数 - 无服务器计算服务',
-        'AWS::S3::Bucket': 'S3 存储桶 - 对象存储服务',
-        'AWS::IAM::Role': 'IAM 角色 - 身份和访问管理角色',
-    }
+def flatten_dict(d, parent_key='', sep='.', max_depth=5, current_depth=0):
+    """ネストされた辞書を平坦化（すべての key-value を抽出）"""
+    items = []
     
-    return descriptions.get(resource_type, 'AWS 资源')
+    if current_depth >= max_depth:
+        items.append((parent_key, str(d)))
+        return items
+    
+    if isinstance(d, dict):
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            
+            if isinstance(v, dict):
+                # 組み込み関数かチェック
+                if any(key.startswith('Fn::') or key == 'Ref' for key in v.keys()):
+                    # 組み込み関数の場合は値として扱う
+                    items.append((new_key, format_value_compact(v)))
+                else:
+                    # 通常のオブジェクトは再帰的に処理
+                    items.extend(flatten_dict(v, new_key, sep, max_depth, current_depth + 1))
+            elif isinstance(v, list):
+                # リストの処理
+                if len(v) == 0:
+                    items.append((new_key, '[]'))
+                elif all(isinstance(item, (str, int, bool, type(None))) for item in v):
+                    # シンプルな値のリスト
+                    items.append((new_key, format_value_compact(v)))
+                else:
+                    # 複雑なリスト
+                    for idx, item in enumerate(v):
+                        if isinstance(item, dict):
+                            items.extend(flatten_dict(item, f"{new_key}[{idx}]", sep, max_depth, current_depth + 1))
+                        else:
+                            items.append((f"{new_key}[{idx}]", format_value_compact(item)))
+            else:
+                # プリミティブ値
+                items.append((new_key, format_value_compact(v)))
+    else:
+        items.append((parent_key, format_value_compact(d)))
+    
+    return items
 
 
 def generate_word_document(yaml_file, output_dir='docs'):
-    """为单个 YAML 文件生成 Word 文档"""
+    """単一の YAML ファイルから Word ドキュメントを生成（すべてのリソースを含む）"""
     
     template = parse_yaml(yaml_file)
     if not template or 'Resources' not in template:
-        print(f"  Skipping {yaml_file} - No resources found")
+        print(f"  スキップ: {yaml_file} - リソースが見つかりません")
         return None
     
     os.makedirs(output_dir, exist_ok=True)
     
-    resource_id = list(template['Resources'].keys())[0]
-    resource_data = template['Resources'][resource_id]
-    resource_type = resource_data.get('Type', 'Unknown')
-    resource_props = resource_data.get('Properties', {})
+    # すべてのリソースを取得
+    all_resources = template['Resources']
+    template_description = template.get('Description', '')
     
-    # 修复：获取资源名称（处理可能是 dict 的情况）
-    resource_name = get_resource_name(resource_data, resource_id)
-    
+    # ドキュメント作成
     doc = Document()
     
+    # ファイル名から取得
+    yaml_basename = os.path.splitext(os.path.basename(yaml_file))[0]
+    
+    # コアプロパティを設定
     core_properties = doc.core_properties
-    core_properties.author = 'AWS Documentation Generator'
-    core_properties.title = f'{resource_name} - Technical Documentation'
+    core_properties.author = 'CloudFormation Documentation Generator'
+    core_properties.title = yaml_basename
     core_properties.created = datetime.now()
     
-    # 封面
-    title = doc.add_heading(f'{resource_name}', 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    # ==================== タイトル ====================
+    
+    title = doc.add_heading(yaml_basename, level=1)
     for run in title.runs:
-        run.font.size = Pt(28)
+        run.font.name = 'Meiryo'
         run.font.color.rgb = RGBColor(0, 51, 102)
-        run.font.name = 'Microsoft YaHei'
-        run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Microsoft YaHei')
+        run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Meiryo')
     
-    subtitle = doc.add_paragraph('Technical Documentation')
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for run in subtitle.runs:
-        run.font.size = Pt(16)
-        run.font.color.rgb = RGBColor(100, 100, 100)
+    # ==================== 説明 ====================
     
+    if template_description:
+        add_heading_with_style(doc, '説明', level=2)
+        doc.add_paragraph(template_description)
+        doc.add_paragraph()
+    
+    # ==================== リソース概要 ====================
+    
+    add_heading_with_style(doc, 'リソース概要', level=2)
+    doc.add_paragraph(f'このテンプレートには {len(all_resources)} 個のリソースが含まれています。')
     doc.add_paragraph()
     
-    type_para = doc.add_paragraph(f'Resource Type: {resource_type}')
-    type_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for run in type_para.runs:
-        run.font.size = Pt(12)
-        run.font.color.rgb = RGBColor(0, 102, 204)
+    # リソース一覧テーブル
+    overview_table = doc.add_table(rows=len(all_resources) + 1, cols=3)
+    overview_table.style = 'Light Grid Accent 1'
     
-    doc.add_paragraph()
+    # ヘッダー
+    overview_table.rows[0].cells[0].text = 'リソース ID'
+    overview_table.rows[0].cells[1].text = 'リソース名'
+    overview_table.rows[0].cells[2].text = 'タイプ'
     
-    date_para = doc.add_paragraph(f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for run in date_para.runs:
-        run.font.size = Pt(10)
-        run.font.color.rgb = RGBColor(150, 150, 150)
-    
-    doc.add_page_break()
-    
-    # 目录
-    add_heading_with_style(doc, 'Table of Contents', level=1)
-    
-    toc_items = [
-        '1. Overview',
-        '2. Resource Details',
-        '3. Properties',
-        '4. Dependencies & References',
-        '5. Tags',
-        '6. YAML Source Code'
-    ]
-    
-    for item in toc_items:
-        p = doc.add_paragraph(item, style='List Bullet')
-        p.paragraph_format.left_indent = Inches(0.5)
-    
-    doc.add_page_break()
-    
-    # 1. Overview
-    add_heading_with_style(doc, '1. Overview', level=1)
-    
-    table = doc.add_table(rows=4, cols=2)
-    table.style = 'Light Grid Accent 1'
-    
-    table.rows[0].cells[0].text = 'Property'
-    table.rows[0].cells[1].text = 'Value'
-    
-    for cell in table.rows[0].cells:
+    for cell in overview_table.rows[0].cells:
         cell.paragraphs[0].runs[0].font.bold = True
         cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
         shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
         cell._element.get_or_add_tcPr().append(shading_elm)
     
-    table.rows[1].cells[0].text = 'Resource Name'
-    table.rows[1].cells[1].text = resource_name
-    
-    table.rows[2].cells[0].text = 'Resource ID'
-    table.rows[2].cells[1].text = resource_id
-    
-    table.rows[3].cells[0].text = 'Resource Type'
-    table.rows[3].cells[1].text = resource_type
+    # データ行
+    for idx, (resource_id, resource_data) in enumerate(all_resources.items(), start=1):
+        resource_type = resource_data.get('Type', 'Unknown')
+        resource_name = get_resource_name(resource_data, resource_id)
+        
+        overview_table.rows[idx].cells[0].text = resource_id
+        overview_table.rows[idx].cells[1].text = resource_name
+        overview_table.rows[idx].cells[2].text = resource_type
     
     doc.add_paragraph()
+    doc.add_page_break()
     
-    add_heading_with_style(doc, 'Description', level=2)
-    description = get_resource_description(resource_type)
-    doc.add_paragraph(description)
+    # ==================== 各リソースの詳細 ====================
     
-    doc.add_paragraph()
-    
-    # 3. Properties
-    add_heading_with_style(doc, '3. Properties', level=1)
-    
-    if resource_props:
-        doc.add_paragraph('This resource has the following properties configured:')
-        doc.add_paragraph()
+    for resource_idx, (resource_id, resource_data) in enumerate(all_resources.items(), start=1):
         
-        prop_table = doc.add_table(rows=len(resource_props) + 1, cols=3)
-        prop_table.style = 'Light Grid Accent 1'
+        resource_type = resource_data.get('Type', 'Unknown')
+        resource_props = resource_data.get('Properties', {})
+        resource_name = get_resource_name(resource_data, resource_id)
         
-        prop_table.rows[0].cells[0].text = 'Property Name'
-        prop_table.rows[0].cells[1].text = 'Type'
-        prop_table.rows[0].cells[2].text = 'Value'
+        # リソースタイトル
+        add_heading_with_style(doc, f'{resource_idx}. {resource_name}', level=2)
         
-        for cell in prop_table.rows[0].cells:
+        # 基本情報テーブル
+        info_table = doc.add_table(rows=3, cols=2)
+        info_table.style = 'Light Grid Accent 1'
+        
+        # ヘッダー
+        info_table.rows[0].cells[0].text = 'プロパティ'
+        info_table.rows[0].cells[1].text = '値'
+        
+        for cell in info_table.rows[0].cells:
             cell.paragraphs[0].runs[0].font.bold = True
             cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
             shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
             cell._element.get_or_add_tcPr().append(shading_elm)
         
-        for idx, (prop_name, prop_value) in enumerate(resource_props.items(), start=1):
-            prop_table.rows[idx].cells[0].text = prop_name
-            
-            # 类型判断
-            if isinstance(prop_value, dict) and any(k.startswith('Fn::') or k == 'Ref' for k in prop_value.keys()):
-                value_type = 'Intrinsic Function'
-            elif isinstance(prop_value, dict):
-                value_type = 'Object'
-            elif isinstance(prop_value, list):
-                value_type = 'Array'
-            elif isinstance(prop_value, str):
-                value_type = 'String'
-            elif isinstance(prop_value, int):
-                value_type = 'Integer'
-            elif isinstance(prop_value, bool):
-                value_type = 'Boolean'
-            else:
-                value_type = 'Unknown'
-            
-            prop_table.rows[idx].cells[1].text = value_type
-            
-            formatted_value = format_intrinsic_function(prop_value)
-            prop_table.rows[idx].cells[2].text = formatted_value
-    else:
-        doc.add_paragraph('No properties configured for this resource.')
-    
-    doc.add_paragraph()
-    
-    # 4. Dependencies & References
-    add_heading_with_style(doc, '4. Dependencies & References', level=1)
-    
-    refs = []
-    getattrs = []
-    
-    def find_references(obj, path=""):
-        if isinstance(obj, dict):
-            if 'Ref' in obj:
-                refs.append((path, obj['Ref']))
-            elif 'Fn::GetAtt' in obj:
-                getattrs.append((path, obj['Fn::GetAtt']))
-            else:
-                for key, value in obj.items():
-                    find_references(value, f"{path}.{key}" if path else key)
-        elif isinstance(obj, list):
-            for idx, item in enumerate(obj):
-                find_references(item, f"{path}[{idx}]")
-    
-    find_references(resource_props)
-    
-    if refs:
-        add_heading_with_style(doc, 'References (!Ref)', level=2)
-        ref_table = doc.add_table(rows=len(refs) + 1, cols=2)
-        ref_table.style = 'Light Grid Accent 1'
+        # データ行
+        info_table.rows[1].cells[0].text = 'リソース ID'
+        info_table.rows[1].cells[1].text = resource_id
         
-        ref_table.rows[0].cells[0].text = 'Property Path'
-        ref_table.rows[0].cells[1].text = 'Referenced Resource'
-        
-        for cell in ref_table.rows[0].cells:
-            cell.paragraphs[0].runs[0].font.bold = True
-        
-        for idx, (path, ref) in enumerate(refs, start=1):
-            ref_table.rows[idx].cells[0].text = path
-            ref_table.rows[idx].cells[1].text = ref
+        info_table.rows[2].cells[0].text = 'リソースタイプ'
+        info_table.rows[2].cells[1].text = resource_type
         
         doc.add_paragraph()
-    
-    if getattrs:
-        add_heading_with_style(doc, 'Attribute References (!GetAtt)', level=2)
-        getatt_table = doc.add_table(rows=len(getattrs) + 1, cols=2)
-        getatt_table.style = 'Light Grid Accent 1'
         
-        getatt_table.rows[0].cells[0].text = 'Property Path'
-        getatt_table.rows[0].cells[1].text = 'Attribute Reference'
+        # ==================== プロパティ詳細 ====================
         
-        for cell in getatt_table.rows[0].cells:
-            cell.paragraphs[0].runs[0].font.bold = True
-        
-        for idx, (path, getatt) in enumerate(getattrs, start=1):
-            getatt_table.rows[idx].cells[0].text = path
-            if isinstance(getatt, list):
-                getatt_table.rows[idx].cells[1].text = f"{getatt[0]}.{getatt[1]}"
+        if resource_props:
+            add_heading_with_style(doc, 'プロパティ詳細', level=3)
+            
+            # プロパティを平坦化
+            flattened = flatten_dict(resource_props)
+            
+            if flattened:
+                # テーブル作成
+                prop_table = doc.add_table(rows=len(flattened) + 1, cols=2)
+                prop_table.style = 'Light Grid Accent 1'
+                
+                # ヘッダー
+                prop_table.rows[0].cells[0].text = 'プロパティパス'
+                prop_table.rows[0].cells[1].text = '値'
+                
+                for cell in prop_table.rows[0].cells:
+                    cell.paragraphs[0].runs[0].font.bold = True
+                    cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                    shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
+                    cell._element.get_or_add_tcPr().append(shading_elm)
+                
+                # データ行
+                for idx, (key, value) in enumerate(flattened, start=1):
+                    prop_table.rows[idx].cells[0].text = key
+                    prop_table.rows[idx].cells[1].text = str(value)
             else:
-                getatt_table.rows[idx].cells[1].text = str(getatt)
+                doc.add_paragraph('プロパティが設定されていません。')
+        else:
+            doc.add_paragraph('このリソースにはプロパティが設定されていません。')
         
         doc.add_paragraph()
-    
-    if not refs and not getattrs:
-        doc.add_paragraph('This resource has no explicit references to other resources.')
-    
-    # 5. Tags
-    add_heading_with_style(doc, '5. Tags', level=1)
-    
-    tags = resource_props.get('Tags', [])
-    
-    if tags:
-        tag_table = doc.add_table(rows=len(tags) + 1, cols=2)
-        tag_table.style = 'Light Grid Accent 1'
         
-        tag_table.rows[0].cells[0].text = 'Key'
-        tag_table.rows[0].cells[1].text = 'Value'
+        # ==================== 参照と依存関係 ====================
         
-        for cell in tag_table.rows[0].cells:
-            cell.paragraphs[0].runs[0].font.bold = True
-            cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
-            shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
-            cell._element.get_or_add_tcPr().append(shading_elm)
+        refs = []
+        getattrs = []
         
-        for idx, tag in enumerate(tags, start=1):
-            if isinstance(tag, dict):
-                key = extract_string_value(tag.get('Key', ''))
-                value = extract_string_value(tag.get('Value', ''))
-                tag_table.rows[idx].cells[0].text = key
-                tag_table.rows[idx].cells[1].text = value
-    else:
-        doc.add_paragraph('No tags configured for this resource.')
+        def find_references(obj, path=""):
+            """再帰的に Ref と GetAtt を検索"""
+            if isinstance(obj, dict):
+                if 'Ref' in obj:
+                    refs.append((path, obj['Ref']))
+                elif 'Fn::GetAtt' in obj:
+                    getattrs.append((path, obj['Fn::GetAtt']))
+                else:
+                    for key, value in obj.items():
+                        find_references(value, f"{path}.{key}" if path else key)
+            elif isinstance(obj, list):
+                for idx, item in enumerate(obj):
+                    find_references(item, f"{path}[{idx}]")
+        
+        find_references(resource_props)
+        
+        if refs or getattrs:
+            add_heading_with_style(doc, '参照と依存関係', level=3)
+            
+            if refs:
+                doc.add_paragraph('リソース参照 (!Ref):', style='List Bullet')
+                for path, ref in refs:
+                    doc.add_paragraph(f'{path} → {ref}', style='List Bullet 2')
+            
+            if getattrs:
+                doc.add_paragraph('属性参照 (!GetAtt):', style='List Bullet')
+                for path, getatt in getattrs:
+                    if isinstance(getatt, list):
+                        doc.add_paragraph(f'{path} → {getatt[0]}.{getatt[1]}', style='List Bullet 2')
+                    else:
+                        doc.add_paragraph(f'{path} → {getatt}', style='List Bullet 2')
+        
+        # ==================== タグ ====================
+        
+        tags = resource_props.get('Tags', [])
+        
+        if tags:
+            doc.add_paragraph()
+            add_heading_with_style(doc, 'タグ', level=3)
+            
+            tag_table = doc.add_table(rows=len(tags) + 1, cols=2)
+            tag_table.style = 'Light Grid Accent 1'
+            
+            tag_table.rows[0].cells[0].text = 'キー'
+            tag_table.rows[0].cells[1].text = '値'
+            
+            for cell in tag_table.rows[0].cells:
+                cell.paragraphs[0].runs[0].font.bold = True
+                cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), '4472C4'))
+                cell._element.get_or_add_tcPr().append(shading_elm)
+            
+            for idx, tag in enumerate(tags, start=1):
+                if isinstance(tag, dict):
+                    key = extract_string_value(tag.get('Key', ''))
+                    value = extract_string_value(tag.get('Value', ''))
+                    tag_table.rows[idx].cells[0].text = key
+                    tag_table.rows[idx].cells[1].text = value
+        
+        # 最後のリソースでなければ改ページ
+        if resource_idx < len(all_resources):
+            doc.add_page_break()
     
-    doc.add_paragraph()
+    # ==================== 保存 ====================
     
-    # 6. YAML Source Code
-    add_heading_with_style(doc, '6. YAML Source Code', level=1)
-    
-    doc.add_paragraph('Complete YAML definition for this resource:')
-    doc.add_paragraph()
-    
-    with open(yaml_file, 'r', encoding='utf-8') as f:
-        yaml_content = f.read()
-    
-    add_code_block(doc, yaml_content)
-    
-    # 保存
-    safe_name = resource_name.replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-')
-    # 限制文件名长度
+    # ファイル名を安全にする
+    safe_name = yaml_basename.replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-')
     if len(safe_name) > 50:
         safe_name = safe_name[:47] + "..."
     
@@ -569,13 +524,13 @@ def generate_word_document(yaml_file, output_dir='docs'):
 
 
 def generate_all_docs(input_dir='aws-resources', output_dir='aws-docs'):
-    """为所有 YAML 文件生成文档"""
+    """すべての YAML ファイルからドキュメントを生成"""
     
     print("="*80)
-    print("AWS CloudFormation Documentation Generator (Fixed)")
+    print("CloudFormation ドキュメント生成ツール (Confluence 用 - すべてのリソース)")
     print("="*80)
-    print(f"\nInput directory: {input_dir}")
-    print(f"Output directory: {output_dir}\n")
+    print(f"\n入力ディレクトリ: {input_dir}")
+    print(f"出力ディレクトリ: {output_dir}\n")
     
     yaml_files = []
     for root, dirs, files in os.walk(input_dir):
@@ -583,41 +538,41 @@ def generate_all_docs(input_dir='aws-resources', output_dir='aws-docs'):
             if file.endswith('.yaml') or file.endswith('.yml'):
                 yaml_files.append(os.path.join(root, file))
     
-    print(f"Found {len(yaml_files)} YAML files\n")
+    print(f"{len(yaml_files)} 個の YAML ファイルが見つかりました\n")
     
     success_count = 0
     error_count = 0
     
     for yaml_file in yaml_files:
-        print(f"Processing: {os.path.basename(yaml_file)}")
+        print(f"処理中: {os.path.basename(yaml_file)}")
         
         try:
             output_file = generate_word_document(yaml_file, output_dir)
             if output_file:
-                print(f"  -> Generated: {os.path.basename(output_file)}")
+                print(f"  -> 生成完了: {os.path.basename(output_file)}")
                 success_count += 1
             else:
                 error_count += 1
         except Exception as e:
-            print(f"  -> Error: {e}")
+            print(f"  -> エラー: {e}")
             import traceback
             traceback.print_exc()
             error_count += 1
     
     print("\n" + "="*80)
-    print(f"Complete!")
-    print(f"  Success: {success_count} documents")
-    print(f"  Errors: {error_count} files")
-    print(f"Output directory: {os.path.abspath(output_dir)}")
+    print(f"完了！")
+    print(f"  成功: {success_count} ドキュメント")
+    print(f"  エラー: {error_count} ファイル")
+    print(f"出力ディレクトリ: {os.path.abspath(output_dir)}")
     print("="*80)
 
 
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description='Generate Word documentation from CloudFormation YAML files')
-    parser.add_argument('--input-dir', default='aws-resources', help='Input directory containing YAML files')
-    parser.add_argument('--output-dir', default='aws-docs', help='Output directory for Word documents')
+    parser = argparse.ArgumentParser(description='CloudFormation YAML から Word ドキュメントを生成（すべてのリソース）')
+    parser.add_argument('--input-dir', default='aws-resources', help='YAML ファイルが含まれる入力ディレクトリ')
+    parser.add_argument('--output-dir', default='aws-docs', help='Word ドキュメントの出力ディレクトリ')
     
     args = parser.parse_args()
     
