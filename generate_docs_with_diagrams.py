@@ -1,25 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-CloudFormation YAML から Word ドキュメントとアーキテクチャ図を同時生成
-Word ドキュメントにアーキテクチャ図を挿入
+拡張版：CloudFormation YAML から Word ドキュメントとアーキテクチャ図を生成
+- 未対応アイコンには汎用アイコンを使用
+- 同一タイプのリソースが 3 個以上ある場合は集約表示
 """
 
 import os
 import yaml
 from datetime import datetime
+from collections import Counter
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from diagrams import Diagram, Cluster, Edge
-from diagrams.aws.network import VPC, InternetGateway, PrivateSubnet, PublicSubnet, NATGateway, ELB, ALB, NLB, Route53, CF, APIGateway, VPCRouter
-from diagrams.aws.compute import EC2, ECS, EKS, Lambda, Batch, ElasticBeanstalk
+from diagrams.aws.network import VPC, InternetGateway, PrivateSubnet, PublicSubnet, NATGateway, ELB, ALB, NLB, Route53, CF, APIGateway, VPCRouter, Endpoint
+from diagrams.aws.compute import EC2, ECS, EKS, Lambda, Batch, ElasticBeanstalk, Fargate
 from diagrams.aws.database import RDS, Dynamodb, ElastiCache, Redshift, Neptune, Database
 from diagrams.aws.storage import S3, EBS, EFS, FSx, Storage, Backup
 from diagrams.aws.integration import SQS, SNS, Eventbridge, StepFunctions, MQ
-from diagrams.aws.security import IAM, SecretsManager, KMS, WAF, Shield, CertificateManager
+from diagrams.aws.security import IAM, SecretsManager, KMS, WAF, Shield, CertificateManager, IdentityAndAccessManagementIam
 from diagrams.aws.management import Cloudwatch, SystemsManager, Cloudformation, Config
 from diagrams.generic.blank import Blank
+from diagrams.generic.compute import Rack
+from diagrams.generic.database import SQL
+from diagrams.generic.storage import Storage as GenericStorage
+from diagrams.generic.network import Switch
 
 
 # ==================== CloudFormation YAML タグ処理 ====================
@@ -111,51 +117,144 @@ def parse_yaml(yaml_file):
         return None
 
 
-# ==================== アイコンマッピング ====================
+# ==================== 拡張アイコンマッピング ====================
 
 def get_icon_class(resource_type):
+    """リソースタイプに対応するアイコンクラスを取得（拡張版）"""
+    
     icon_map = {
+        # ==================== Network ====================
         'AWS::EC2::VPC': VPC,
         'AWS::EC2::Subnet': PrivateSubnet,
         'AWS::EC2::InternetGateway': InternetGateway,
         'AWS::EC2::VPCGatewayAttachment': InternetGateway,
         'AWS::EC2::NatGateway': NATGateway,
+        'AWS::EC2::EIP': InternetGateway,
         'AWS::EC2::RouteTable': VPCRouter,
         'AWS::EC2::Route': VPCRouter,
         'AWS::EC2::SubnetRouteTableAssociation': VPCRouter,
         'AWS::EC2::SecurityGroup': VPCRouter,
+        'AWS::EC2::NetworkInterface': VPCRouter,
+        'AWS::EC2::NetworkAcl': VPCRouter,
+        'AWS::EC2::VPCEndpoint': Endpoint,  # ← 修正
+        'AWS::EC2::VPCPeeringConnection': VPC,
+        'AWS::EC2::TransitGateway': VPC,
         'AWS::ElasticLoadBalancingV2::LoadBalancer': ALB,
         'AWS::ElasticLoadBalancingV2::TargetGroup': ALB,
+        'AWS::ElasticLoadBalancingV2::Listener': ALB,
+        'AWS::ElasticLoadBalancing::LoadBalancer': ELB,
         'AWS::Route53::HostedZone': Route53,
+        'AWS::Route53::RecordSet': Route53,
+        'AWS::CloudFront::Distribution': CF,
+        'AWS::ApiGateway::RestApi': APIGateway,
+        'AWS::ApiGatewayV2::Api': APIGateway,
+        
+        # ==================== Compute ====================
         'AWS::EC2::Instance': EC2,
+        'AWS::EC2::LaunchTemplate': EC2,
         'AWS::AutoScaling::AutoScalingGroup': EC2,
+        'AWS::AutoScaling::LaunchConfiguration': EC2,
         'AWS::ECS::Cluster': ECS,
         'AWS::ECS::Service': ECS,
         'AWS::ECS::TaskDefinition': ECS,
         'AWS::EKS::Cluster': EKS,
+        'AWS::EKS::Nodegroup': EKS,
+        'AWS::EKS::FargateProfile': Fargate,  # ← 追加
+        'AWS::EKS::Addon': EKS,  # ← 追加
+        'AWS::EKS::AccessEntry': EKS,  # ← 追加
         'AWS::Lambda::Function': Lambda,
         'AWS::Lambda::Permission': Lambda,
+        'AWS::Lambda::LayerVersion': Lambda,
+        'AWS::Lambda::EventSourceMapping': Lambda,
+        'AWS::Batch::JobDefinition': Batch,
+        'AWS::Batch::JobQueue': Batch,
+        'AWS::ElasticBeanstalk::Application': ElasticBeanstalk,
+        
+        # ==================== Database ====================
         'AWS::RDS::DBInstance': RDS,
         'AWS::RDS::DBCluster': RDS,
         'AWS::RDS::DBSubnetGroup': RDS,
+        'AWS::RDS::DBParameterGroup': RDS,
         'AWS::DynamoDB::Table': Dynamodb,
+        'AWS::DynamoDB::GlobalTable': Dynamodb,
+        'AWS::ElastiCache::CacheCluster': ElastiCache,
+        'AWS::ElastiCache::ReplicationGroup': ElastiCache,
+        'AWS::Redshift::Cluster': Redshift,
+        'AWS::Neptune::DBCluster': Neptune,
+        'AWS::DocumentDB::DBCluster': Database,
+        
+        # ==================== Storage ====================
         'AWS::S3::Bucket': S3,
+        'AWS::S3::BucketPolicy': S3,
+        'AWS::S3::AccessPoint': S3,
+        'AWS::EBS::Volume': EBS,
+        'AWS::EBS::Snapshot': EBS,
         'AWS::EFS::FileSystem': EFS,
         'AWS::EFS::MountTarget': EFS,
         'AWS::EFS::AccessPoint': EFS,
+        'AWS::FSx::FileSystem': FSx,
         'AWS::Backup::BackupVault': Backup,
         'AWS::Backup::BackupPlan': Backup,
         'AWS::Backup::BackupSelection': Backup,
+        'AWS::Glacier::Vault': Storage,
+        
+        # ==================== Integration ====================
         'AWS::SQS::Queue': SQS,
+        'AWS::SQS::QueuePolicy': SQS,
         'AWS::SNS::Topic': SNS,
+        'AWS::SNS::Subscription': SNS,
+        'AWS::Events::Rule': Eventbridge,
+        'AWS::Events::EventBus': Eventbridge,
+        'AWS::StepFunctions::StateMachine': StepFunctions,
+        'AWS::MQ::Broker': MQ,
+        'AWS::Kinesis::Stream': Eventbridge,
+        
+        # ==================== Security ====================
         'AWS::IAM::Role': IAM,
         'AWS::IAM::Policy': IAM,
+        'AWS::IAM::User': IAM,
+        'AWS::IAM::Group': IAM,
+        'AWS::IAM::InstanceProfile': IAM,  # ← 追加
+        'AWS::IAM::ManagedPolicy': IAM,  # ← 追加
+        'AWS::SecretsManager::Secret': SecretsManager,
+        'AWS::SecretsManager::SecretTargetAttachment': SecretsManager,
+        'AWS::KMS::Key': KMS,
+        'AWS::KMS::Alias': KMS,
+        'AWS::WAFv2::WebACL': WAF,
+        'AWS::WAF::WebACL': WAF,
+        'AWS::CertificateManager::Certificate': CertificateManager,
+        
+        # ==================== Management ====================
         'AWS::CloudWatch::Alarm': Cloudwatch,
+        'AWS::CloudWatch::Dashboard': Cloudwatch,
         'AWS::Logs::LogGroup': Cloudwatch,
+        'AWS::Logs::LogStream': Cloudwatch,
         'AWS::Logs::MetricFilter': Cloudwatch,
+        'AWS::Logs::SubscriptionFilter': Cloudwatch,
         'AWS::SSM::Parameter': SystemsManager,
+        'AWS::SSM::Document': SystemsManager,
+        'AWS::CloudFormation::Stack': Cloudformation,
+        'AWS::Config::ConfigRule': Config,
+        'AWS::CloudTrail::Trail': Cloudwatch,
     }
+    
     return icon_map.get(resource_type)
+
+
+def get_fallback_icon(resource_type):
+    """対応していないリソースに汎用アイコンを返す"""
+    
+    # リソースタイプから大カテゴリを判定
+    if '::EC2::' in resource_type or '::ELB::' in resource_type or '::Route53::' in resource_type:
+        return Switch  # ネットワーク系
+    elif '::Lambda::' in resource_type or '::ECS::' in resource_type or '::EKS::' in resource_type:
+        return Rack  # コンピューティング系
+    elif '::RDS::' in resource_type or '::DynamoDB::' in resource_type:
+        return SQL  # データベース系
+    elif '::S3::' in resource_type or '::EFS::' in resource_type or '::Backup::' in resource_type:
+        return GenericStorage  # ストレージ系
+    else:
+        return Blank  # その他
 
 
 def extract_string_value(value):
@@ -344,13 +443,18 @@ def categorize_resources(resources):
     }
     category_map = {
         'AWS::EC2::VPC': 'Network', 'AWS::EC2::Subnet': 'Network',
-        'AWS::EC2::InternetGateway': 'Network', 'AWS::EC2::SecurityGroup': 'Security',
-        'AWS::Lambda::Function': 'Compute', 'AWS::RDS::DBInstance': 'Database',
+        'AWS::EC2::InternetGateway': 'Network', 'AWS::EC2::VPCEndpoint': 'Network',
+        'AWS::EC2::SecurityGroup': 'Security', 'AWS::EC2::Instance': 'Compute',
+        'AWS::Lambda::Function': 'Compute', 'AWS::ECS::Cluster': 'Compute',
+        'AWS::EKS::Cluster': 'Compute', 'AWS::EKS::FargateProfile': 'Compute',
+        'AWS::EKS::Addon': 'Compute', 'AWS::EKS::AccessEntry': 'Security',
+        'AWS::RDS::DBInstance': 'Database', 'AWS::DynamoDB::Table': 'Database',
         'AWS::S3::Bucket': 'Storage', 'AWS::EFS::FileSystem': 'Storage',
         'AWS::EFS::MountTarget': 'Storage', 'AWS::EFS::AccessPoint': 'Storage',
         'AWS::Backup::BackupVault': 'Storage', 'AWS::Backup::BackupPlan': 'Storage',
-        'AWS::IAM::Role': 'Security', 'AWS::Logs::LogGroup': 'Management',
-        'AWS::Logs::MetricFilter': 'Management',
+        'AWS::IAM::Role': 'Security', 'AWS::IAM::Policy': 'Security',
+        'AWS::IAM::InstanceProfile': 'Security', 'AWS::IAM::ManagedPolicy': 'Security',
+        'AWS::Logs::LogGroup': 'Management', 'AWS::Logs::MetricFilter': 'Management',
     }
     for resource_id, resource_data in resources.items():
         resource_type = resource_data.get('Type', '')
@@ -359,8 +463,38 @@ def categorize_resources(resources):
     return {k: v for k, v in categories.items() if v}
 
 
+def aggregate_resources_by_type(resources):
+    """
+    同じタイプのリソースが 3 個以上ある場合、2 個 + "..." に集約
+    戻り値: (表示するリソースリスト, 集約情報辞書)
+    """
+    type_counter = Counter()
+    for resource_id, resource_data, resource_type in resources:
+        type_counter[resource_type] += 1
+    
+    aggregated = []
+    aggregation_info = {}
+    
+    type_groups = {}
+    for resource_id, resource_data, resource_type in resources:
+        if resource_type not in type_groups:
+            type_groups[resource_type] = []
+        type_groups[resource_type].append((resource_id, resource_data, resource_type))
+    
+    for resource_type, group in type_groups.items():
+        count = len(group)
+        if count >= 3:
+            # 2個だけ表示 + "..." ノードを追加
+            aggregated.extend(group[:2])
+            aggregation_info[resource_type] = count
+        else:
+            aggregated.extend(group)
+    
+    return aggregated, aggregation_info
+
+
 def generate_diagram(yaml_file, output_dir):
-    """アーキテクチャ図を生成"""
+    """アーキテクチャ図を生成（集約機能付き）"""
     template = parse_yaml(yaml_file)
     if not template or 'Resources' not in template:
         return None
@@ -374,6 +508,8 @@ def generate_diagram(yaml_file, output_dir):
     
     graph_attr = {"fontsize": "11", "bgcolor": "white", "pad": "0.5", "nodesep": "0.8", "ranksep": "1.0"}
     
+    unsupported_types = set()
+    
     try:
         with Diagram(
             f"{base_name}",
@@ -384,20 +520,47 @@ def generate_diagram(yaml_file, output_dir):
             graph_attr=graph_attr
         ):
             nodes = {}
+            
             for category, resource_list in categories.items():
+                # リソース集約
+                aggregated_list, aggregation_info = aggregate_resources_by_type(resource_list)
+                
                 with Cluster(f"{category} ({len(resource_list)})"):
-                    for resource_id, resource_data, resource_type in resource_list:
+                    for resource_id, resource_data, resource_type in aggregated_list:
                         icon_class = get_icon_class(resource_type)
                         label = get_resource_label(resource_id, resource_data)
+                        
                         if icon_class:
                             node = icon_class(label)
                         else:
-                            node = Blank(label)
+                            # フォールバックアイコンを使用
+                            fallback_icon = get_fallback_icon(resource_type)
+                            node = fallback_icon(label)
+                            unsupported_types.add(resource_type)
+                        
                         nodes[resource_id] = node
+                    
+                    # "..." ノードを追加
+                    for resource_type, total_count in aggregation_info.items():
+                        remaining = total_count - 2
+                        ellipsis_label = f"... +{remaining} more\n{resource_type.split('::')[-1]}"
+                        
+                        icon_class = get_icon_class(resource_type)
+                        if icon_class:
+                            ellipsis_node = icon_class(ellipsis_label)
+                        else:
+                            fallback_icon = get_fallback_icon(resource_type)
+                            ellipsis_node = fallback_icon(ellipsis_label)
             
+            # 関係を描画
             for rel in relationships:
                 if rel['from'] in nodes and rel['to'] in nodes:
                     nodes[rel['from']] >> Edge(color="blue", style="solid") >> nodes[rel['to']]
+        
+        if unsupported_types:
+            print(f"    Info: {len(unsupported_types)} resource type(s) using fallback icons:")
+            for rt in sorted(unsupported_types):
+                print(f"      - {rt}")
         
         return f"{output_filename}.png"
     except Exception as e:
@@ -415,7 +578,6 @@ def generate_word_with_diagram(yaml_file, output_dir='docs'):
     
     os.makedirs(output_dir, exist_ok=True)
     
-    # アーキテクチャ図を先に生成
     print(f"  Generating diagram...")
     diagram_path = generate_diagram(yaml_file, output_dir)
     
@@ -429,20 +591,17 @@ def generate_word_with_diagram(yaml_file, output_dir='docs'):
     
     yaml_basename = os.path.splitext(os.path.basename(yaml_file))[0]
     
-    # Word ドキュメント作成
     doc = Document()
     core_properties = doc.core_properties
     core_properties.author = 'CloudFormation Documentation Generator'
     core_properties.title = yaml_basename
     core_properties.created = datetime.now()
     
-    # Title
     title = doc.add_heading(yaml_basename, level=1)
     for run in title.runs:
         run.font.name = 'Arial'
         run.font.color.rgb = RGBColor(0, 51, 102)
     
-    # Template Information
     add_heading_with_style(doc, 'Template Information', level=2)
     info_table = doc.add_table(rows=2, cols=2)
     info_table.style = 'Light Grid Accent 1'
@@ -457,20 +616,18 @@ def generate_word_with_diagram(yaml_file, output_dir='docs'):
     info_table.rows[1].cells[1].text = template_version if template_version else 'N/A'
     doc.add_paragraph()
     
-    # Description
     if template_description:
         add_heading_with_style(doc, 'Description', level=2)
         doc.add_paragraph(template_description)
         doc.add_paragraph()
     
-    # ==================== Architecture Diagram ====================
+    # Architecture Diagram
     if diagram_path and os.path.exists(diagram_path):
         add_heading_with_style(doc, 'Architecture Diagram', level=2)
         doc.add_paragraph('The following diagram illustrates the architecture of this CloudFormation template:')
         doc.add_paragraph()
         
         try:
-            # 画像を挿入（幅 6 インチ）
             doc.add_picture(diagram_path, width=Inches(6))
             doc.add_paragraph()
         except Exception as e:
@@ -570,7 +727,6 @@ def generate_word_with_diagram(yaml_file, output_dir='docs'):
         doc.add_paragraph()
         doc.add_page_break()
         
-        # Resource Details
         add_heading_with_style(doc, 'Resource Details', level=2)
         doc.add_paragraph()
         
@@ -644,7 +800,6 @@ def generate_word_with_diagram(yaml_file, output_dir='docs'):
                     output_table.rows[idx].cells[1].text = str(value)
             doc.add_paragraph()
     
-    # Save
     safe_name = yaml_basename.replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-')
     if len(safe_name) > 50:
         safe_name = safe_name[:47] + "..."
@@ -656,10 +811,8 @@ def generate_word_with_diagram(yaml_file, output_dir='docs'):
 
 
 def generate_all_docs_with_diagrams(input_dir='aws-resources', output_dir='docs-with-diagrams'):
-    """すべての YAML ファイルからドキュメントと図を生成"""
-    
     print("="*80)
-    print("CloudFormation Documentation Generator (With Architecture Diagrams)")
+    print("CloudFormation Documentation Generator (Enhanced)")
     print("="*80)
     print(f"\nInput directory: {input_dir}")
     print(f"Output directory: {output_dir}\n")
@@ -702,9 +855,9 @@ def generate_all_docs_with_diagrams(input_dir='aws-resources', output_dir='docs-
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description='Generate Word documentation with embedded architecture diagrams')
+    parser = argparse.ArgumentParser(description='Generate Word documentation with embedded architecture diagrams (Enhanced)')
     parser.add_argument('--input-dir', default='aws-resources', help='Input directory containing YAML files')
-    parser.add_argument('--output-dir', default='docs-with-diagrams', help='Output directory')
+    parser.add_argument('--output-dir', default='docs-with-diagrams-enhanced', help='Output directory')
     
     args = parser.parse_args()
     
