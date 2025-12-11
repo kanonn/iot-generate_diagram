@@ -1,7 +1,11 @@
 # Build
 history/
 aws-resources/
+aws-resources-test/
 aws-docs/
+test-docs/
+aws_diagram_generator/aws-outputs/
+aws_diagram_generator/__pycache__/
 
 # IDE
 .idea/
