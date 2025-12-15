@@ -92,6 +92,18 @@ def main():
         help='Draw.io 形式で出力（AWS 公式アイコンスタイル）'
     )
     
+    parser.add_argument(
+        '--svg',
+        action='store_true',
+        help='SVG 形式で出力'
+    )
+    
+    parser.add_argument(
+        '--svg-sg',
+        action='store_true',
+        help='Security Group 関係の SVG 図を出力'
+    )
+    
     args = parser.parse_args()
     
     print("\n" + "=" * 80)
@@ -151,6 +163,21 @@ def main():
             
             generator = DrawioGenerator(reader)
             generator.generate(diagram_dir, args.output_name)
+        
+        elif args.svg:
+            # SVG 形式で出力
+            from svg_generator import SVGGenerator
+            
+            generator = SVGGenerator(reader)
+            generator.generate(diagram_dir, args.output_name)
+        
+        elif args.svg_sg:
+            # Security Group SVG 形式で出力
+            from svg_generator import SecurityGroupSVGGenerator
+            
+            generator = SecurityGroupSVGGenerator(reader)
+            generator.generate(diagram_dir, args.output_name)
+        
         else:
             # PNG 形式で出力（diagrams ライブラリ使用）
             from diagram_generator import ArchitectureDiagramGenerator

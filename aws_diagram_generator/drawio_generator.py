@@ -330,15 +330,22 @@ class DrawioGenerator:
             for az, subnets in sorted(az_subnets.items()):
                 az_label = az[-2:] if az else ''
                 
-                # AZ コンテナ
+                # AZ 内のサブネット数に基づいて幅を計算
+                num_subnets_in_az = len(subnets)
+                az_width = num_subnets_in_az * 320 + 40
+                
+                # AZ コンテナ（絶対座標を使用）
+                az_abs_x = 100
+                az_abs_y = vpc_y + az_y
+                
                 az_cell_id = self._create_group(
                     f"Availability Zone {az_label}",
-                    100, vpc_y + az_y,
-                    vpc_width - 40, 220,
+                    az_abs_x, az_abs_y,
+                    min(az_width, vpc_width - 40), 220,
                     self._container_style(self.COLORS['az'], dashed=True)
                 )
                 
-                # サブネットを描画
+                # サブネットを描画（AZ 内の相対座標）
                 subnet_x = 20
                 for subnet_id, subnet_data in subnets:
                     subnet_name = subnet_data.get('Name', subnet_id)
@@ -348,9 +355,13 @@ class DrawioGenerator:
                     subnet_color = self.COLORS['subnet_public'] if is_public else self.COLORS['subnet_private']
                     subnet_label = 'Public subnet' if is_public else 'Private subnet'
                     
+                    # サブネットの絶対座標
+                    subnet_abs_x = az_abs_x + subnet_x
+                    subnet_abs_y = az_abs_y + 40
+                    
                     subnet_cell_id = self._create_group(
-                        subnet_label,
-                        subnet_x, 40,
+                        f"{subnet_label}\n{subnet_name[:20]}",
+                        subnet_abs_x, subnet_abs_y,
                         300, 160,
                         self._container_style(subnet_color)
                     )
@@ -365,50 +376,48 @@ class DrawioGenerator:
                         
                         # EKS の場合は特別処理
                         if res_type == 'EKS':
-                            # EKS コンテナ
+                            # EKS コンテナの絶対座標
+                            eks_abs_x = subnet_abs_x + res_x
+                            eks_abs_y = subnet_abs_y + res_y
+                            
                             eks_cell_id = self._create_group(
                                 'EKS',
-                                res_x, res_y,
+                                eks_abs_x, eks_abs_y,
                                 180, 100,
                                 self._container_style(self.COLORS['eks'], dashed=True)
                             )
                             node_map[res_id] = eks_cell_id
                             
-                            # EKS アイコン
+                            # EKS アイコン（EKS コンテナ内の相対座標）
                             self._create_cell(
                                 '',
-                                10, 10, 40, 40,
-                                self._aws_icon_style('EKS'),
-                                eks_cell_id
+                                eks_abs_x + 10, eks_abs_y + 20, 40, 40,
+                                self._aws_icon_style('EKS')
                             )
                             
                             # Fargate と Pod を追加
                             self._create_cell(
                                 'Fargate',
-                                60, 30, 40, 40,
-                                self._aws_icon_style('Fargate'),
-                                eks_cell_id
+                                eks_abs_x + 60, eks_abs_y + 30, 40, 40,
+                                self._aws_icon_style('Fargate')
                             )
                             self._create_cell(
                                 'pod',
-                                110, 30, 30, 30,
-                                'sketch=0;html=1;aspect=fixed;strokeColor=none;shadow=0;fillColor=#326CE5;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;shape=mxgraph.kubernetes.icon2;prIcon=pod;',
-                                eks_cell_id
+                                eks_abs_x + 110, eks_abs_y + 30, 30, 30,
+                                'sketch=0;html=1;aspect=fixed;strokeColor=none;shadow=0;fillColor=#326CE5;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;shape=mxgraph.kubernetes.icon2;prIcon=pod;'
                             )
                             self._create_cell(
                                 'pod',
-                                145, 30, 30, 30,
-                                'sketch=0;html=1;aspect=fixed;strokeColor=none;shadow=0;fillColor=#326CE5;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;shape=mxgraph.kubernetes.icon2;prIcon=pod;',
-                                eks_cell_id
+                                eks_abs_x + 145, eks_abs_y + 30, 30, 30,
+                                'sketch=0;html=1;aspect=fixed;strokeColor=none;shadow=0;fillColor=#326CE5;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;shape=mxgraph.kubernetes.icon2;prIcon=pod;'
                             )
                             
                             res_x += 200
                         else:
                             cell_id = self._create_cell(
                                 res_type if res_type in ['ALB', 'NLB', 'EC2'] else '',
-                                res_x, res_y, 48, 48,
-                                self._aws_icon_style(res_type),
-                                subnet_cell_id
+                                subnet_abs_x + res_x, subnet_abs_y + res_y, 48, 48,
+                                self._aws_icon_style(res_type)
                             )
                             node_map[res_id] = cell_id
                             res_x += 60

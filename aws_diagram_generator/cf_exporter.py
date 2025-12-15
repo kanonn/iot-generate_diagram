@@ -57,6 +57,59 @@ CloudFormationLoader.add_constructor('!Join', join_constructor)
 CloudFormationLoader.add_constructor('!If', if_constructor)
 
 
+def importvalue_constructor(loader, node):
+    return {'Fn::ImportValue': loader.construct_scalar(node)}
+
+
+def split_constructor(loader, node):
+    return {'Fn::Split': loader.construct_sequence(node)}
+
+
+def findinmap_constructor(loader, node):
+    return {'Fn::FindInMap': loader.construct_sequence(node)}
+
+
+def base64_constructor(loader, node):
+    return {'Fn::Base64': loader.construct_scalar(node)}
+
+
+def cidr_constructor(loader, node):
+    return {'Fn::Cidr': loader.construct_sequence(node)}
+
+
+def equals_constructor(loader, node):
+    return {'Fn::Equals': loader.construct_sequence(node)}
+
+
+def and_constructor(loader, node):
+    return {'Fn::And': loader.construct_sequence(node)}
+
+
+def or_constructor(loader, node):
+    return {'Fn::Or': loader.construct_sequence(node)}
+
+
+def not_constructor(loader, node):
+    return {'Fn::Not': loader.construct_sequence(node)}
+
+
+def condition_constructor(loader, node):
+    return {'Condition': loader.construct_scalar(node)}
+
+
+# 追加タグを登録
+CloudFormationLoader.add_constructor('!ImportValue', importvalue_constructor)
+CloudFormationLoader.add_constructor('!Split', split_constructor)
+CloudFormationLoader.add_constructor('!FindInMap', findinmap_constructor)
+CloudFormationLoader.add_constructor('!Base64', base64_constructor)
+CloudFormationLoader.add_constructor('!Cidr', cidr_constructor)
+CloudFormationLoader.add_constructor('!Equals', equals_constructor)
+CloudFormationLoader.add_constructor('!And', and_constructor)
+CloudFormationLoader.add_constructor('!Or', or_constructor)
+CloudFormationLoader.add_constructor('!Not', not_constructor)
+CloudFormationLoader.add_constructor('!Condition', condition_constructor)
+
+
 # ==================== エクスポート ====================
 
 def export_cloudformation(reader, output_dir):
