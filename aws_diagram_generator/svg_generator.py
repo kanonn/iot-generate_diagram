@@ -76,7 +76,8 @@ class SVGGenerator:
     # グリッド設定
     GRID_SIZE = 20  # 小格子サイズ
     ICON_SIZE = 40  # アイコンサイズ（2x2 小格子）
-    ICON_SPACING = 120  # アイコン間隔（アイコン40px + 間隔80px = 120px）
+    ICON_SPACING = 120  # 横方向アイコン間隔（アイコン40px + 間隔80px = 120px）
+    ROW_SPACING = 120  # 縦方向行間隔（アイコン40px + 間隔80px = 120px）
     
     def __init__(self, reader, icons_dir=None):
         self.reader = reader
@@ -579,6 +580,7 @@ class SVGGenerator:
         svg_parts = []
         
         spacing = self.ICON_SPACING
+        row_spacing = self.ROW_SPACING
         icon_size = self.ICON_SIZE
         
         # タイトル
@@ -601,11 +603,11 @@ class SVGGenerator:
                 col = i % cols
                 row = i // cols
                 x = start_x + 10 + col * spacing
-                y = content_y + row * (icon_size + 20)
+                y = content_y + row * row_spacing
                 svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name))
             
             left_width = cols * spacing + 20
-            left_height = rows * (icon_size + 20)
+            left_height = rows * row_spacing
         
         # 右側: 関連ありリソース
         if related_external:
@@ -621,10 +623,10 @@ class SVGGenerator:
                 # 各グループを縦に配置
                 for i, (icon_type, res_id, name) in enumerate(group):
                     x = group_x
-                    y = content_y + i * (icon_size + 20)
+                    y = content_y + i * row_spacing
                     svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name))
                 
-                group_height = len(group) * (icon_size + 20)
+                group_height = len(group) * row_spacing
                 max_group_height = max(max_group_height, group_height)
                 group_x += spacing
             
@@ -761,6 +763,7 @@ class SVGGenerator:
             x = start_x + 10 + col * spacing
             svg_parts.append(self._create_icon_svg(icon_type, x, content_y, res_id, name))
         
+        row_spacing = self.ROW_SPACING
         subnet_internal_height = icon_size + 20 + 28
         subnet_width = max(total_cols * spacing + 25, 80)
         
@@ -790,10 +793,10 @@ class SVGGenerator:
                 ext_col = j % cols
                 ext_row = j // cols
                 x = start_x + 10 + (col_start + ext_col) * spacing
-                y = ext_y + ext_row * (icon_size + 20)
+                y = ext_y + ext_row * row_spacing
                 svg_parts.append(self._create_icon_svg(ext_type, x, y, ext_id, ext_name))
             
-            ext_height = rows * (icon_size + 20)
+            ext_height = rows * row_spacing
             max_ext_height = max(max_ext_height, ext_height)
         
         total_height = subnet_internal_height + 10 + max_ext_height
@@ -804,7 +807,7 @@ class SVGGenerator:
         svg_parts = []
         
         spacing = self.ICON_SPACING
-        icon_size = self.ICON_SIZE
+        row_spacing = self.ROW_SPACING
         
         if not resources:
             return '', 0, 0
@@ -816,11 +819,11 @@ class SVGGenerator:
             col = i % cols
             row = i // cols
             x = start_x + col * spacing
-            y = start_y + row * (icon_size + 20)
+            y = start_y + row * row_spacing
             svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name))
         
         width = cols * spacing
-        height = rows * (icon_size + 20) + 5
+        height = rows * row_spacing + 5
         
         return '\n'.join(svg_parts), width, height
     
