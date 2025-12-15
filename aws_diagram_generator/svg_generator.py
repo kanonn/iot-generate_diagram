@@ -134,7 +134,7 @@ class SVGGenerator:
 '''
     
     def _create_edge_svg(self, source_id, target_id):
-        """接続線を作成（太く黒く）"""
+        """接続線を作成（細く黒く）"""
         if source_id not in self.node_positions or target_id not in self.node_positions:
             return ''
         
@@ -150,7 +150,7 @@ class SVGGenerator:
                 src_y -= src_h / 2
                 dst_y += dst_h / 2
         
-        return f'    <line x1="{src_x:.0f}" y1="{src_y:.0f}" x2="{dst_x:.0f}" y2="{dst_y:.0f}" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>\n'
+        return f'    <line x1="{src_x:.0f}" y1="{src_y:.0f}" x2="{dst_x:.0f}" y2="{dst_y:.0f}" stroke="#222" stroke-width="1" marker-end="url(#arrowhead)"/>\n'
     
     def generate(self, output_dir, output_name='aws-architecture'):
         print("\n" + "=" * 80)
@@ -451,32 +451,16 @@ class SVGGenerator:
         current_y = start_y + 28
         max_content_width = 150
         
-        # サブネットを横に並べる（1行に最大3つ）
+        # サブネットを上下に並べる
         subnet_items = list(subnets.items())
         if subnet_items:
-            max_per_row = 3
-            subnet_x = start_x + 15
-            row_max_height = 0
-            col_count = 0
-            
             for subnet_id, subnet_info in subnet_items:
                 s_svg, s_width, s_height = self._layout_subnet(
-                    subnet_id, subnet_info, external_resources, subnet_x, current_y, icon_size, icon_spacing
+                    subnet_id, subnet_info, external_resources, start_x + 15, current_y, icon_size, icon_spacing
                 )
                 svg_parts.append(s_svg)
-                row_max_height = max(row_max_height, s_height)
-                subnet_x += s_width + 15
-                max_content_width = max(max_content_width, subnet_x - start_x)
-                col_count += 1
-                
-                if col_count >= max_per_row:
-                    current_y += row_max_height + 15
-                    subnet_x = start_x + 15
-                    row_max_height = 0
-                    col_count = 0
-            
-            if col_count > 0:
-                current_y += row_max_height + 15
+                max_content_width = max(max_content_width, s_width + 30)
+                current_y += s_height + 20
         
         # VPC レベルリソース
         if vpc_level_resources:
@@ -499,7 +483,7 @@ class SVGGenerator:
         return vpc_border + '\n'.join(svg_parts), vpc_width, vpc_height
     
     def _layout_subnet(self, subnet_id, subnet_info, external_resources, start_x, start_y, icon_size, icon_spacing):
-        """サブネットをレイアウト（2行、関連外部リソース数で並べ替え）+ 関連外部リソースをその下に"""
+        """サブネットをレイアウト（1行、関連外部リソース数で左から右へ降順）+ 関連外部リソースをその下に"""
         svg_parts = []
         
         subnet_name = subnet_info['name']
@@ -524,29 +508,20 @@ class SVGGenerator:
             ext_count = self._get_external_connections(res_id)
             res_with_ext_count.append((icon_type, res_id, name, ext_count))
         
-        # 関連外部リソース数で降順ソート
+        # 関連外部リソース数で降順ソート（多いものを左に）
         res_with_ext_count.sort(key=lambda x: x[3], reverse=True)
         
-        # 固定2行
+        # 1行で配置
         total = len(res_with_ext_count)
-        rows = min(2, total)
-        cols = math.ceil(total / rows) if rows > 0 else 1
+        cols = total
         
-        # 2行目（下）から配置、左から右へ関連数多い順
         content_y = start_y + 22
         for i, (icon_type, res_id, name, ext_count) in enumerate(res_with_ext_count):
-            if i < cols:
-                row = 1  # 2行目
-                col = i
-            else:
-                row = 0  # 1行目
-                col = i - cols
-            
-            x = start_x + 10 + col * icon_spacing
-            y = content_y + row * (icon_size + 16)
+            x = start_x + 10 + i * icon_spacing
+            y = content_y
             svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name, icon_size))
         
-        subnet_internal_height = rows * (icon_size + 16) + 28
+        subnet_internal_height = icon_size + 16 + 28
         subnet_width = cols * icon_spacing + 25
         
         # サブネット枠
@@ -715,15 +690,15 @@ class SVGGenerator:
      style="background-color: white; font-family: Arial, sans-serif;">
   
   <defs>
-    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#222"/>
     </marker>
     <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
       <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" stroke-width="0.5"/>
     </pattern>
-    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
-      <rect width="80" height="80" fill="url(#smallGrid)"/>
-      <path d="M 80 0 L 0 0 0 80" fill="none" stroke="#e0e0e0" stroke-width="1"/>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="url(#smallGrid)"/>
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e0e0e0" stroke-width="1"/>
     </pattern>
   </defs>
   <rect width="100%" height="100%" fill="url(#grid)"/>
