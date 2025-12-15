@@ -601,6 +601,19 @@ class SVGGenerator:
         """リソースの接続数を取得"""
         return len(self.relationships_map.get(res_id, [])) + len(self.reverse_relationships.get(res_id, []))
     
+    def _get_target_group_count(self, res_id):
+        """リソースに関連する Target Group の数を取得"""
+        count = 0
+        # このリソースから出る関係で TG へのもの
+        for target, rel_type in self.relationships_map.get(res_id, []):
+            if rel_type == 'listener_to_tg' or 'target' in rel_type.lower():
+                count += 1
+        # このリソースへ入る関係で TG からのもの
+        for source, rel_type in self.reverse_relationships.get(res_id, []):
+            if rel_type == 'listener_to_tg' or 'target' in rel_type.lower():
+                count += 1
+        return count
+    
     def _layout_all(self, vpc_data, external_resources):
         """全体レイアウト"""
         svg_parts = []
@@ -704,7 +717,7 @@ class SVGGenerator:
         return vpc_border + '\n'.join(svg_parts), vpc_width, vpc_height
     
     def _layout_subnet(self, subnet_id, subnet_info, start_x, start_y, icon_size, icon_spacing):
-        """サブネットをレイアウト（固定2行、左から右へ線多い順）"""
+        """サブネットをレイアウト（固定2行、関連 TG 数でソート）"""
         svg_parts = []
         
         subnet_name = subnet_info['name']
@@ -724,19 +737,27 @@ class SVGGenerator:
 '''
             return border, subnet_width, subnet_height
         
-        # 接続数でソート（多い順 = 左に配置）
-        sorted_resources = sorted(resources, key=lambda r: self._get_connection_count(r[1]), reverse=True)
+        # 関連 TG 数でソート（多い順）
+        sorted_resources = sorted(resources, key=lambda r: self._get_target_group_count(r[1]), reverse=True)
         
         # 固定2行、各行に ceil(総数/2) 個
         total = len(sorted_resources)
         rows = min(2, total)  # 最大2行
         cols = math.ceil(total / rows)  # 各行の列数
         
-        # 上の行から配置、各行は左から右へ線が多い順
+        # 2行目から配置（TG 関連多いものを2行目左から）
+        # sorted_resources[0] -> 2行目1列目, [1] -> 2行目2列目, ...
+        # 2行目が埋まったら1行目へ
         content_y = start_y + 22
         for i, (icon_type, res_id, name) in enumerate(sorted_resources):
-            row = i // cols
-            col = i % cols
+            # 2行目を先に埋める（下から上へ）
+            if i < cols:
+                row = 1  # 2行目
+                col = i
+            else:
+                row = 0  # 1行目
+                col = i - cols
+            
             x = start_x + 10 + col * icon_spacing
             y = content_y + row * (icon_size + 16)
             svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name, icon_size))
