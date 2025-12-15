@@ -86,6 +86,12 @@ def main():
         help='アーキテクチャ図生成をスキップ'
     )
     
+    parser.add_argument(
+        '--drawio',
+        action='store_true',
+        help='Draw.io 形式で出力（AWS 公式アイコンスタイル）'
+    )
+    
     args = parser.parse_args()
     
     print("\n" + "=" * 80)
@@ -137,11 +143,20 @@ def main():
     
     # アーキテクチャ図生成
     if not args.no_diagram:
-        from diagram_generator import ArchitectureDiagramGenerator
-        
         diagram_dir = os.path.join(args.output_dir, 'diagrams')
-        generator = ArchitectureDiagramGenerator(reader)
-        generator.generate(diagram_dir, args.output_name)
+        
+        if args.drawio:
+            # Draw.io 形式で出力
+            from drawio_generator import DrawioGenerator
+            
+            generator = DrawioGenerator(reader)
+            generator.generate(diagram_dir, args.output_name)
+        else:
+            # PNG 形式で出力（diagrams ライブラリ使用）
+            from diagram_generator import ArchitectureDiagramGenerator
+            
+            generator = ArchitectureDiagramGenerator(reader)
+            generator.generate(diagram_dir, args.output_name)
     
     print("\n" + "=" * 80)
     print("Complete!")
