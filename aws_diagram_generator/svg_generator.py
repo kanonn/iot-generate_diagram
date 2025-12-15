@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-SVG 形式のアーキテクチャ図生成モジュール
-AWS アイコンを使用した SVG 出力
+SVG 形式のアーキテクチャ図生成モジュール（完全版）
+全てのリソースを表示し、関係線を描画する
 """
 
 import os
@@ -10,33 +10,49 @@ import math
 
 
 class SVGGenerator:
-    """SVG 形式のアーキテクチャ図を生成するクラス"""
+    """SVG 形式のアーキテクチャ図を生成するクラス（完全版）"""
     
     # AWS アイコンの色定義
     ICON_COLORS = {
+        # Compute - Orange
         'EC2': '#ED7100',
         'ECS': '#ED7100',
         'EKS': '#ED7100',
         'Lambda': '#ED7100',
         'Fargate': '#ED7100',
+        
+        # Network - Purple
         'ALB': '#8C4FFF',
         'NLB': '#8C4FFF',
         'ELB': '#8C4FFF',
-        'RDS': '#3B48CC',
-        'DynamoDB': '#3B48CC',
-        'S3': '#3F8624',
-        'EFS': '#3F8624',
-        'SQS': '#E7157B',
-        'SNS': '#E7157B',
         'VPC': '#8C4FFF',
         'Subnet': '#7AA116',
-        'SecurityGroup': '#E7157B',
         'InternetGateway': '#8C4FFF',
         'NATGateway': '#8C4FFF',
         'VPCEndpoint': '#8C4FFF',
+        'TargetGroup': '#8C4FFF',
+        
+        # Database - Blue
+        'RDS': '#3B48CC',
+        'DynamoDB': '#3B48CC',
+        'ElastiCache': '#3B48CC',
+        
+        # Storage - Green
+        'S3': '#3F8624',
+        'EFS': '#3F8624',
+        
+        # Integration - Pink
+        'SQS': '#E7157B',
+        'SNS': '#E7157B',
         'APIGateway': '#E7157B',
-        'CloudWatch': '#E7157B',
+        
+        # Security - Red
+        'SecurityGroup': '#DD344C',
         'IAM': '#DD344C',
+        
+        # Management
+        'CloudWatch': '#E7157B',
+        
         'default': '#232F3E',
     }
     
@@ -46,103 +62,248 @@ class SVGGenerator:
         'subnet_private': '#7AA116',
         'subnet_public': '#248814',
         'az': '#147EBA',
-        'eks': '#ED7100',
-        'security_group': '#E7157B',
+        'external': '#232F3E',
     }
     
     def __init__(self, reader):
         self.reader = reader
-        self.width = 1600
-        self.height = 1200
-        self.elements = []
-        self.connections = []
         self.node_positions = {}  # リソース ID -> (x, y, width, height)
+        self.all_nodes = []  # 全てのノード情報
+        self.all_edges = []  # 全てのエッジ情報
         
-        # サブネットごとのリソース
+        # サブネットごとのリソース（全て個別に保存）
         self.subnet_resources = defaultdict(list)
         
-    def _organize_resources(self):
-        """リソースをサブネットごとに整理"""
+        # VPC ごとのリソース（サブネット未指定）
+        self.vpc_resources = defaultdict(list)
+        
+        # 外部リソース
+        self.external_resources = []
+    
+    def _organize_all_resources(self):
+        """全てのリソースを整理（聚合なし）"""
         reader = self.reader
+        
+        print(f"  Processing VPCs: {len(reader.vpcs)}")
+        print(f"  Processing Subnets: {len(reader.subnets)}")
+        print(f"  Processing EC2 Instances: {len(reader.ec2_instances)}")
+        print(f"  Processing ECS Services: {len(reader.ecs_services)}")
+        print(f"  Processing EKS Clusters: {len(reader.eks_clusters)}")
+        print(f"  Processing Lambda Functions: {len(reader.lambda_functions)}")
+        print(f"  Processing RDS Instances: {len(reader.rds_instances)}")
+        print(f"  Processing Load Balancers: {len(reader.load_balancers)}")
+        print(f"  Processing Target Groups: {len(reader.target_groups)}")
+        print(f"  Processing NAT Gateways: {len(reader.nat_gateways)}")
+        print(f"  Processing VPC Endpoints: {len(reader.vpc_endpoints)}")
+        print(f"  Processing Internet Gateways: {len(reader.internet_gateways)}")
+        print(f"  Processing S3 Buckets: {len(reader.s3_buckets)}")
+        print(f"  Processing DynamoDB Tables: {len(reader.dynamodb_tables)}")
+        print(f"  Processing SQS Queues: {len(reader.sqs_queues)}")
+        print(f"  Processing SNS Topics: {len(reader.sns_topics)}")
+        print(f"  Processing EFS Filesystems: {len(reader.efs_filesystems)}")
+        print(f"  Processing Security Groups: {len(reader.security_groups)}")
         
         # EC2 -> Subnet
         for ec2_id, ec2_data in reader.ec2_instances.items():
             subnet_id = ec2_data.get('SubnetId') or ec2_data.get('Properties', {}).get('SubnetId')
-            if subnet_id:
-                self.subnet_resources[subnet_id].append(('EC2', ec2_id, ec2_data))
+            name = ec2_data.get('Name', ec2_id)
+            if subnet_id and subnet_id in reader.subnets:
+                self.subnet_resources[subnet_id].append(('EC2', ec2_id, name, ec2_data))
+            else:
+                # サブネット不明の場合は VPC に
+                vpc_id = ec2_data.get('VpcId')
+                if vpc_id:
+                    self.vpc_resources[vpc_id].append(('EC2', ec2_id, name, ec2_data))
         
         # ECS Service -> Subnet
         for svc_name, svc_data in reader.ecs_services.items():
             subnet_ids = svc_data.get('SubnetIds', [])
+            name = svc_data.get('Name', svc_name)
             if subnet_ids:
-                self.subnet_resources[subnet_ids[0]].append(('ECS', svc_name, svc_data))
+                for subnet_id in subnet_ids:
+                    if subnet_id in reader.subnets:
+                        self.subnet_resources[subnet_id].append(('Fargate', svc_name, name, svc_data))
+                        break
+            else:
+                vpc_id = svc_data.get('VpcId')
+                if vpc_id:
+                    self.vpc_resources[vpc_id].append(('Fargate', svc_name, name, svc_data))
         
         # EKS Cluster -> Subnet
         for cluster_name, cluster_data in reader.eks_clusters.items():
             subnet_ids = cluster_data.get('SubnetIds', [])
+            name = cluster_data.get('Name', cluster_name)
             if subnet_ids:
-                self.subnet_resources[subnet_ids[0]].append(('EKS', cluster_name, cluster_data))
+                for subnet_id in subnet_ids:
+                    if subnet_id in reader.subnets:
+                        self.subnet_resources[subnet_id].append(('EKS', cluster_name, name, cluster_data))
+                        break
+            else:
+                vpc_id = cluster_data.get('VpcId')
+                if vpc_id:
+                    self.vpc_resources[vpc_id].append(('EKS', cluster_name, name, cluster_data))
         
-        # Lambda (VPC) -> Subnet
+        # Lambda -> Subnet (VPC Lambda) or External
         for func_name, func_data in reader.lambda_functions.items():
             subnet_ids = func_data.get('SubnetIds', [])
+            name = func_data.get('Name', func_name)
             if subnet_ids:
-                self.subnet_resources[subnet_ids[0]].append(('Lambda', func_name, func_data))
-        
-        # Load Balancer -> Subnet
-        for lb_name, lb_data in reader.load_balancers.items():
-            subnet_ids = lb_data.get('SubnetIds', []) or lb_data.get('Properties', {}).get('Subnets', [])
-            if subnet_ids:
-                lb_type = lb_data.get('LoadBalancerType', 'application')
-                icon = 'ALB' if lb_type == 'application' else 'NLB'
-                self.subnet_resources[subnet_ids[0]].append((icon, lb_name, lb_data))
-        
-        # NAT Gateway -> Subnet
-        for nat_id, nat_data in reader.nat_gateways.items():
-            subnet_id = nat_data.get('SubnetId') or nat_data.get('Properties', {}).get('SubnetId')
-            if subnet_id:
-                self.subnet_resources[subnet_id].append(('NATGateway', nat_id, nat_data))
+                for subnet_id in subnet_ids:
+                    if subnet_id in reader.subnets:
+                        self.subnet_resources[subnet_id].append(('Lambda', func_name, name, func_data))
+                        break
+            else:
+                # VPC 外の Lambda
+                self.external_resources.append(('Lambda', func_name, name, func_data))
         
         # RDS -> Subnet
         for db_id, db_data in reader.rds_instances.items():
             subnet_ids = db_data.get('SubnetIds', [])
+            name = db_data.get('Name', db_id)
             if subnet_ids:
-                self.subnet_resources[subnet_ids[0]].append(('RDS', db_id, db_data))
+                for subnet_id in subnet_ids:
+                    if subnet_id in reader.subnets:
+                        self.subnet_resources[subnet_id].append(('RDS', db_id, name, db_data))
+                        break
+            else:
+                vpc_id = db_data.get('VpcId')
+                if vpc_id:
+                    self.vpc_resources[vpc_id].append(('RDS', db_id, name, db_data))
+        
+        # ElastiCache -> Subnet
+        for cache_id, cache_data in reader.elasticache_clusters.items():
+            subnet_ids = cache_data.get('SubnetIds', [])
+            name = cache_data.get('Name', cache_id)
+            if subnet_ids:
+                for subnet_id in subnet_ids:
+                    if subnet_id in reader.subnets:
+                        self.subnet_resources[subnet_id].append(('ElastiCache', cache_id, name, cache_data))
+                        break
+            else:
+                vpc_id = cache_data.get('VpcId')
+                if vpc_id:
+                    self.vpc_resources[vpc_id].append(('ElastiCache', cache_id, name, cache_data))
+        
+        # NAT Gateway -> Subnet
+        for nat_id, nat_data in reader.nat_gateways.items():
+            subnet_id = nat_data.get('SubnetId') or nat_data.get('Properties', {}).get('SubnetId')
+            name = nat_data.get('Name', nat_id)
+            if subnet_id and subnet_id in reader.subnets:
+                self.subnet_resources[subnet_id].append(('NATGateway', nat_id, name, nat_data))
+        
+        # VPC Endpoint -> Subnet（全て表示）
+        for ep_id, ep_data in reader.vpc_endpoints.items():
+            subnet_ids = ep_data.get('SubnetIds', []) or ep_data.get('Properties', {}).get('SubnetIds', [])
+            service_name = ep_data.get('ServiceName', ep_id)
+            name = service_name.split('.')[-1] if '.' in service_name else service_name
+            if subnet_ids:
+                for subnet_id in subnet_ids:
+                    if subnet_id in reader.subnets:
+                        self.subnet_resources[subnet_id].append(('VPCEndpoint', ep_id, name, ep_data))
+                        break
+            else:
+                vpc_id = ep_data.get('VpcId')
+                if vpc_id:
+                    self.vpc_resources[vpc_id].append(('VPCEndpoint', ep_id, name, ep_data))
+        
+        # Load Balancer -> Subnet（全て表示）
+        for lb_name, lb_data in reader.load_balancers.items():
+            subnet_ids = lb_data.get('SubnetIds', []) or lb_data.get('Properties', {}).get('Subnets', [])
+            lb_type = lb_data.get('LoadBalancerType', lb_data.get('Properties', {}).get('Type', 'application'))
+            icon_type = 'NLB' if 'network' in str(lb_type).lower() else 'ALB'
+            name = lb_data.get('Name', lb_name)
+            
+            if subnet_ids:
+                for subnet_id in subnet_ids:
+                    if subnet_id in reader.subnets:
+                        self.subnet_resources[subnet_id].append((icon_type, lb_name, name, lb_data))
+                        break
+            else:
+                vpc_id = lb_data.get('VpcId')
+                if vpc_id:
+                    self.vpc_resources[vpc_id].append((icon_type, lb_name, name, lb_data))
+                else:
+                    self.external_resources.append((icon_type, lb_name, name, lb_data))
+        
+        # Target Group -> VPC（全て表示）
+        for tg_name, tg_data in reader.target_groups.items():
+            vpc_id = tg_data.get('VpcId') or tg_data.get('Properties', {}).get('VpcId')
+            name = tg_data.get('Name', tg_name)
+            if vpc_id and vpc_id in reader.vpcs:
+                self.vpc_resources[vpc_id].append(('TargetGroup', tg_name, name, tg_data))
+            else:
+                self.external_resources.append(('TargetGroup', tg_name, name, tg_data))
+        
+        # 外部リソース（全て表示）
+        for bucket_name, bucket_data in reader.s3_buckets.items():
+            name = bucket_data.get('Name', bucket_name)
+            self.external_resources.append(('S3', bucket_name, name, bucket_data))
+        
+        for table_name, table_data in reader.dynamodb_tables.items():
+            name = table_data.get('Name', table_name)
+            self.external_resources.append(('DynamoDB', table_name, name, table_data))
+        
+        for queue_name, queue_data in reader.sqs_queues.items():
+            name = queue_data.get('Name', queue_name)
+            self.external_resources.append(('SQS', queue_name, name, queue_data))
+        
+        for topic_name, topic_data in reader.sns_topics.items():
+            name = topic_data.get('Name', topic_name)
+            self.external_resources.append(('SNS', topic_name, name, topic_data))
+        
+        for fs_id, fs_data in reader.efs_filesystems.items():
+            name = fs_data.get('Name', fs_id)
+            self.external_resources.append(('EFS', fs_id, name, fs_data))
+        
+        # 統計を表示
+        total_in_subnet = sum(len(v) for v in self.subnet_resources.values())
+        total_in_vpc = sum(len(v) for v in self.vpc_resources.values())
+        total_external = len(self.external_resources)
+        print(f"\n  Resources organized:")
+        print(f"    In Subnets: {total_in_subnet}")
+        print(f"    In VPCs (no subnet): {total_in_vpc}")
+        print(f"    External: {total_external}")
+        print(f"    Total: {total_in_subnet + total_in_vpc + total_external}")
     
-    def _create_aws_icon(self, icon_type, x, y, size=48, label=''):
-        """AWS スタイルのアイコンを作成"""
+    def _create_icon_svg(self, icon_type, x, y, size=48, label='', res_id=''):
+        """AWS スタイルのアイコン SVG を作成"""
         color = self.ICON_COLORS.get(icon_type, self.ICON_COLORS['default'])
         
-        # アイコンの背景（角丸四角形）
-        icon_svg = f'''
-        <g transform="translate({x}, {y})">
-            <rect x="0" y="0" width="{size}" height="{size}" rx="5" ry="5" 
-                  fill="{color}" stroke="white" stroke-width="2"/>
-            <text x="{size/2}" y="{size/2 + 4}" 
-                  text-anchor="middle" fill="white" font-size="10" font-weight="bold">
-                {self._get_icon_symbol(icon_type)}
-            </text>
-            <text x="{size/2}" y="{size + 15}" 
-                  text-anchor="middle" fill="#232F3E" font-size="10">
-                {label[:20]}
-            </text>
-        </g>
-        '''
+        # ラベルを短縮
+        short_label = label[:20] if len(label) > 20 else label
+        
+        # ノード位置を記録
+        self.node_positions[res_id] = (x + size/2, y + size/2, size, size)
+        
+        icon_svg = f'''    <g id="{res_id}">
+      <rect x="{x}" y="{y}" width="{size}" height="{size}" rx="5" ry="5" 
+            fill="{color}" stroke="white" stroke-width="2"/>
+      <text x="{x + size/2}" y="{y + size/2 + 4}" 
+            text-anchor="middle" fill="white" font-size="10" font-weight="bold">
+        {self._get_icon_symbol(icon_type)}
+      </text>
+      <text x="{x + size/2}" y="{y + size + 14}" 
+            text-anchor="middle" fill="#232F3E" font-size="9">
+        {short_label}
+      </text>
+    </g>
+'''
         return icon_svg
     
     def _get_icon_symbol(self, icon_type):
         """アイコンのシンボルを取得"""
         symbols = {
-            'EC2': '⬡',
-            'ECS': '◎',
-            'EKS': 'K8s',
+            'EC2': 'EC2',
+            'ECS': 'ECS',
+            'EKS': 'EKS',
             'Lambda': 'λ',
             'Fargate': 'Fg',
             'ALB': 'ALB',
             'NLB': 'NLB',
             'ELB': 'ELB',
-            'RDS': 'DB',
+            'RDS': 'RDS',
             'DynamoDB': 'DDB',
+            'ElastiCache': 'EC',
             'S3': 'S3',
             'EFS': 'EFS',
             'SQS': 'SQS',
@@ -150,111 +311,167 @@ class SVGGenerator:
             'VPCEndpoint': 'EP',
             'NATGateway': 'NAT',
             'InternetGateway': 'IGW',
+            'TargetGroup': 'TG',
+            'SecurityGroup': 'SG',
+            'APIGateway': 'API',
         }
         return symbols.get(icon_type, icon_type[:3])
     
-    def _create_container(self, x, y, width, height, label, color, dashed=False):
-        """コンテナ（グループ枠）を作成"""
+    def _create_container_svg(self, x, y, width, height, label, color, dashed=False):
+        """コンテナ（グループ枠）の SVG を作成"""
         dash_style = 'stroke-dasharray="8,4"' if dashed else ''
         
-        container_svg = f'''
-        <g>
-            <rect x="{x}" y="{y}" width="{width}" height="{height}" 
-                  fill="none" stroke="{color}" stroke-width="2" rx="5" ry="5" {dash_style}/>
-            <text x="{x + 10}" y="{y + 18}" 
-                  fill="{color}" font-size="14" font-weight="bold" 
-                  text-decoration="underline">
-                {label}
-            </text>
-        </g>
-        '''
-        return container_svg
+        return f'''    <g>
+      <rect x="{x}" y="{y}" width="{width}" height="{height}" 
+            fill="none" stroke="{color}" stroke-width="2" rx="5" ry="5" {dash_style}/>
+      <text x="{x + 10}" y="{y + 18}" 
+            fill="{color}" font-size="12" font-weight="bold" text-decoration="underline">
+        {label}
+      </text>
+    </g>
+'''
     
-    def _create_connection(self, x1, y1, x2, y2, color='#232F3E', arrow=True):
-        """接続線を作成"""
-        marker = 'marker-end="url(#arrowhead)"' if arrow else ''
+    def _create_edge_svg(self, source_id, target_id, color='#232F3E', dashed=False):
+        """接続線の SVG を作成"""
+        if source_id not in self.node_positions or target_id not in self.node_positions:
+            return ''
         
-        connection_svg = f'''
-        <line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" 
-              stroke="{color}" stroke-width="1.5" {marker}/>
-        '''
-        return connection_svg
+        src_x, src_y, src_w, src_h = self.node_positions[source_id]
+        dst_x, dst_y, dst_w, dst_h = self.node_positions[target_id]
+        
+        dash_style = 'stroke-dasharray="5,3"' if dashed else ''
+        
+        return f'''    <line x1="{src_x}" y1="{src_y}" x2="{dst_x}" y2="{dst_y}" 
+          stroke="{color}" stroke-width="1.5" {dash_style} marker-end="url(#arrowhead)"/>
+'''
     
     def generate(self, output_dir, output_name='aws-architecture'):
         """SVG アーキテクチャ図を生成"""
         print("\n" + "=" * 80)
-        print("Generating SVG Architecture Diagram...")
+        print("Generating SVG Architecture Diagram (Full Version)...")
         print("=" * 80 + "\n")
         
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, f"{output_name}.svg")
         
         # リソースを整理
-        self._organize_resources()
+        self._organize_all_resources()
         
-        reader = self.reader
+        # レイアウトを計算
+        layout = self._calculate_layout()
         
-        # レイアウト計算
-        self._calculate_layout()
-        
-        # SVG コンテンツを構築
-        svg_content = self._build_svg()
+        # SVG を構築
+        svg_content = self._build_svg(layout)
         
         # ファイルに書き込み
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(svg_content)
         
-        print(f"✓ SVG diagram generated: {output_path}")
+        print(f"\n✓ SVG diagram generated: {output_path}")
+        print(f"  Total nodes: {len(self.node_positions)}")
         return output_path
     
     def _calculate_layout(self):
         """レイアウトを計算"""
         reader = self.reader
         
-        # VPC ごとの幅と高さを計算
-        num_vpcs = len(reader.vpcs)
+        # 各サブネットのリソース数を計算
+        max_resources_per_subnet = 1
+        for subnet_id, resources in self.subnet_resources.items():
+            max_resources_per_subnet = max(max_resources_per_subnet, len(resources))
         
-        max_subnets_per_vpc = 0
-        for vpc_id in reader.vpcs:
-            vpc_subnets = [s for s, d in reader.subnets.items() 
-                          if (d.get('VpcId') or d.get('Properties', {}).get('VpcId')) == vpc_id]
-            max_subnets_per_vpc = max(max_subnets_per_vpc, len(vpc_subnets))
+        # 列数（1サブネット内）
+        cols_per_subnet = min(4, max(1, int(math.ceil(math.sqrt(max_resources_per_subnet)))))
         
-        # 全体サイズを調整
-        self.width = max(1600, max_subnets_per_vpc * 200 + 400)
-        self.height = max(1200, num_vpcs * 400 + 300)
+        # サブネット幅
+        subnet_width = cols_per_subnet * 70 + 40
+        subnet_width = max(160, subnet_width)
+        
+        # VPC ごとのサブネット数
+        vpc_subnet_count = defaultdict(int)
+        for subnet_id, subnet_data in reader.subnets.items():
+            vpc_id = subnet_data.get('VpcId') or subnet_data.get('Properties', {}).get('VpcId')
+            if vpc_id:
+                vpc_subnet_count[vpc_id] += 1
+        
+        max_subnets_per_vpc = max(vpc_subnet_count.values()) if vpc_subnet_count else 1
+        
+        # VPC 幅
+        vpc_width = max_subnets_per_vpc * (subnet_width + 20) + 60
+        vpc_width = max(400, vpc_width)
+        
+        # 外部リソースの列数
+        external_cols = min(6, max(1, int(math.ceil(math.sqrt(len(self.external_resources))))))
+        external_width = external_cols * 70 + 40
+        
+        # 全体幅
+        total_width = vpc_width + external_width + 200
+        
+        # 高さ計算
+        rows_per_subnet = max(1, int(math.ceil(max_resources_per_subnet / cols_per_subnet)))
+        subnet_height = rows_per_subnet * 70 + 60
+        subnet_height = max(120, subnet_height)
+        
+        vpc_height = subnet_height + 80
+        for vpc_id, count in vpc_subnet_count.items():
+            vpc_res_count = len(self.vpc_resources.get(vpc_id, []))
+            vpc_res_height = int(math.ceil(vpc_res_count / 4)) * 70 + 40 if vpc_res_count else 0
+            vpc_height = max(vpc_height, subnet_height + vpc_res_height + 100)
+        
+        total_height = len(reader.vpcs) * (vpc_height + 40) + 100
+        
+        # 外部リソースの高さ
+        external_rows = int(math.ceil(len(self.external_resources) / external_cols))
+        external_height = external_rows * 70 + 60
+        total_height = max(total_height, external_height + 100)
+        
+        return {
+            'total_width': total_width,
+            'total_height': total_height,
+            'vpc_width': vpc_width,
+            'vpc_height': vpc_height,
+            'subnet_width': subnet_width,
+            'subnet_height': subnet_height,
+            'cols_per_subnet': cols_per_subnet,
+            'external_width': external_width,
+            'external_cols': external_cols,
+        }
     
-    def _build_svg(self):
+    def _build_svg(self, layout):
         """SVG コンテンツを構築"""
         reader = self.reader
         svg_parts = []
         
+        width = layout['total_width']
+        height = layout['total_height']
+        
         # SVG ヘッダー
         svg_parts.append(f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" 
-     width="{self.width}" height="{self.height}" 
-     viewBox="0 0 {self.width} {self.height}"
-     style="background-color: white;">
-    
-    <!-- 矢印マーカー定義 -->
-    <defs>
-        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
-                refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#232F3E"/>
-        </marker>
-    </defs>
-    
-    <!-- グリッド背景（オプション） -->
-    <defs>
-        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" stroke-width="0.5"/>
-        </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#grid)"/>
+     width="{width}" height="{height}" 
+     viewBox="0 0 {width} {height}"
+     style="background-color: white; font-family: Arial, sans-serif;">
+  
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+            refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#232F3E"/>
+    </marker>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e8e8e8" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+  
+  <!-- Title -->
+  <text x="20" y="30" fill="#232F3E" font-size="16" font-weight="bold">
+    AWS Architecture Diagram
+  </text>
 ''')
         
-        # VPC を描画
-        vpc_y = 40
+        # VPC ごとに描画
+        vpc_y = 50
         for vpc_id, vpc_data in reader.vpcs.items():
             vpc_name = vpc_data.get('Name', vpc_id)
             cidr = vpc_data.get('CidrBlock', '')
@@ -265,320 +482,197 @@ class SVGGenerator:
                 if (sdata.get('VpcId') or sdata.get('Properties', {}).get('VpcId')) == vpc_id
             }
             
-            if not vpc_subnets:
-                continue
-            
-            # VPC の幅と高さを計算
+            # VPC の高さを計算
             num_subnets = len(vpc_subnets)
-            vpc_width = max(800, num_subnets * 180 + 100)
-            vpc_height = 350
+            vpc_res_count = len(self.vpc_resources.get(vpc_id, []))
+            vpc_res_rows = int(math.ceil(vpc_res_count / 4)) if vpc_res_count else 0
+            actual_vpc_height = layout['subnet_height'] + vpc_res_rows * 70 + 100
+            actual_vpc_height = max(layout['vpc_height'], actual_vpc_height)
             
             # VPC コンテナ
-            svg_parts.append(self._create_container(
-                40, vpc_y, vpc_width, vpc_height,
+            svg_parts.append(self._create_container_svg(
+                20, vpc_y, layout['vpc_width'], actual_vpc_height,
                 f"{vpc_name} ({cidr})",
                 self.CONTAINER_COLORS['vpc']
             ))
             
             # サブネットを描画
-            subnet_x = 60
+            subnet_x = 40
             subnet_y = vpc_y + 40
             
             for subnet_id, subnet_data in vpc_subnets.items():
                 subnet_name = subnet_data.get('Name', subnet_id)
                 is_public = subnet_data.get('IsPublic', False)
-                az = subnet_data.get('AvailabilityZone', '')
                 
                 color = self.CONTAINER_COLORS['subnet_public' if is_public else 'subnet_private']
-                label = f"{subnet_name[:25]}"
-                if az:
-                    label += f" ({az[-2:]})"
+                
+                # サブネット内のリソース数に基づいて高さを計算
+                resources = self.subnet_resources.get(subnet_id, [])
+                rows = int(math.ceil(len(resources) / layout['cols_per_subnet'])) if resources else 1
+                actual_subnet_height = rows * 70 + 60
+                actual_subnet_height = max(layout['subnet_height'], actual_subnet_height)
                 
                 # サブネットコンテナ
-                subnet_width = 160
-                subnet_height = 280
-                svg_parts.append(self._create_container(
-                    subnet_x, subnet_y, subnet_width, subnet_height,
-                    label, color
+                svg_parts.append(self._create_container_svg(
+                    subnet_x, subnet_y, layout['subnet_width'], actual_subnet_height,
+                    subnet_name[:25],
+                    color
                 ))
                 
                 # サブネット内のリソースを描画
                 res_x = subnet_x + 20
-                res_y = subnet_y + 40
-                row_count = 0
+                res_y = subnet_y + 35
+                col = 0
                 
-                for res_type, res_id, res_data in self.subnet_resources.get(subnet_id, []):
-                    res_name = ''
-                    if isinstance(res_data, dict):
-                        res_name = res_data.get('Name', res_id)
-                    
-                    svg_parts.append(self._create_aws_icon(
-                        res_type, res_x, res_y, 48, res_name[:12]
+                for icon_type, res_id, res_name, res_data in resources:
+                    svg_parts.append(self._create_icon_svg(
+                        icon_type, res_x, res_y, 48, res_name, res_id
                     ))
                     
-                    # 位置を記録
-                    self.node_positions[res_id] = (res_x + 24, res_y + 24, 48, 48)
-                    
-                    res_y += 70
-                    row_count += 1
-                    
-                    if row_count >= 3:
-                        res_x += 60
-                        res_y = subnet_y + 40
-                        row_count = 0
+                    col += 1
+                    res_x += 65
+                    if col >= layout['cols_per_subnet']:
+                        col = 0
+                        res_x = subnet_x + 20
+                        res_y += 70
                 
-                subnet_x += subnet_width + 20
+                subnet_x += layout['subnet_width'] + 20
+                if subnet_x + layout['subnet_width'] > layout['vpc_width']:
+                    subnet_x = 40
+                    subnet_y += actual_subnet_height + 20
             
-            vpc_y += vpc_height + 40
+            # VPC レベルのリソースを描画（サブネット未指定）
+            vpc_res_list = self.vpc_resources.get(vpc_id, [])
+            if vpc_res_list:
+                vpc_res_y = subnet_y + layout['subnet_height'] + 20
+                vpc_res_x = 40
+                col = 0
+                
+                svg_parts.append(f'''    <text x="40" y="{vpc_res_y - 5}" fill="#8C4FFF" font-size="11">
+      VPC Resources (no subnet specified)
+    </text>
+''')
+                
+                for icon_type, res_id, res_name, res_data in vpc_res_list:
+                    svg_parts.append(self._create_icon_svg(
+                        icon_type, vpc_res_x, vpc_res_y, 48, res_name, res_id
+                    ))
+                    
+                    col += 1
+                    vpc_res_x += 65
+                    if col >= 6:
+                        col = 0
+                        vpc_res_x = 40
+                        vpc_res_y += 70
+            
+            vpc_y += actual_vpc_height + 30
         
-        # 外部リソースを右側に配置
-        external_x = self.width - 200
-        external_y = 60
+        # 外部リソースを右側に描画
+        external_x = layout['vpc_width'] + 60
+        external_y = 50
         
-        # S3
-        if reader.s3_buckets:
-            svg_parts.append(self._create_aws_icon(
-                'S3', external_x, external_y, 48, f"S3 ({len(reader.s3_buckets)})"
+        if self.external_resources:
+            svg_parts.append(self._create_container_svg(
+                external_x, external_y,
+                layout['external_width'],
+                int(math.ceil(len(self.external_resources) / layout['external_cols'])) * 70 + 60,
+                "External Resources",
+                self.CONTAINER_COLORS['external'],
+                dashed=True
             ))
-            self.node_positions['s3'] = (external_x + 24, external_y + 24, 48, 48)
-            external_y += 80
-        
-        # EFS
-        if reader.efs_filesystems:
-            svg_parts.append(self._create_aws_icon(
-                'EFS', external_x, external_y, 48, f"EFS ({len(reader.efs_filesystems)})"
-            ))
-            self.node_positions['efs'] = (external_x + 24, external_y + 24, 48, 48)
-            external_y += 80
-        
-        # DynamoDB
-        if reader.dynamodb_tables:
-            svg_parts.append(self._create_aws_icon(
-                'DynamoDB', external_x, external_y, 48, f"DDB ({len(reader.dynamodb_tables)})"
-            ))
-            self.node_positions['dynamodb'] = (external_x + 24, external_y + 24, 48, 48)
-            external_y += 80
-        
-        # SQS
-        if reader.sqs_queues:
-            svg_parts.append(self._create_aws_icon(
-                'SQS', external_x, external_y, 48, f"SQS ({len(reader.sqs_queues)})"
-            ))
-            external_y += 80
-        
-        # SNS
-        if reader.sns_topics:
-            svg_parts.append(self._create_aws_icon(
-                'SNS', external_x, external_y, 48, f"SNS ({len(reader.sns_topics)})"
-            ))
-            external_y += 80
-        
-        # Lambda (non-VPC)
-        non_vpc_lambda = [f for f, d in reader.lambda_functions.items() if not d.get('SubnetIds')]
-        if non_vpc_lambda:
-            svg_parts.append(self._create_aws_icon(
-                'Lambda', external_x, external_y, 48, f"Lambda ({len(non_vpc_lambda)})"
-            ))
+            
+            res_x = external_x + 20
+            res_y = external_y + 35
+            col = 0
+            
+            for icon_type, res_id, res_name, res_data in self.external_resources:
+                svg_parts.append(self._create_icon_svg(
+                    icon_type, res_x, res_y, 48, res_name, res_id
+                ))
+                
+                col += 1
+                res_x += 65
+                if col >= layout['external_cols']:
+                    col = 0
+                    res_x = external_x + 20
+                    res_y += 70
         
         # 接続線を描画
-        svg_parts.append(self._draw_connections())
+        svg_parts.append('\n  <!-- Connections -->\n')
+        svg_parts.append(self._draw_all_connections())
         
         # SVG フッター
         svg_parts.append('</svg>')
         
         return '\n'.join(svg_parts)
     
-    def _draw_connections(self):
-        """接続線を描画"""
+    def _draw_all_connections(self):
+        """全ての接続線を描画"""
         lines = []
         reader = self.reader
+        drawn_edges = set()
         
-        # Load Balancer -> Target への接続
+        # reader.relationships から接続線を描画
+        for source_id, target_id, rel_type, label in reader.relationships:
+            if source_id in self.node_positions and target_id in self.node_positions:
+                edge_key = (source_id, target_id)
+                if edge_key not in drawn_edges:
+                    color = '#232F3E'
+                    dashed = False
+                    
+                    if rel_type == 'attached_to':
+                        color = '#3B48CC'
+                    elif rel_type == 'targets':
+                        color = '#DD344C'
+                        dashed = True
+                    elif rel_type == 'triggers':
+                        color = '#ED7100'
+                    elif rel_type == 'routes_to':
+                        color = '#E7157B'
+                    
+                    lines.append(self._create_edge_svg(source_id, target_id, color, dashed))
+                    drawn_edges.add(edge_key)
+        
+        # Load Balancer -> Target Group 接続
         for lb_name, lb_data in reader.load_balancers.items():
             if lb_name not in self.node_positions:
                 continue
             
-            lb_pos = self.node_positions[lb_name]
+            # Target Groups への接続
+            for tg_name, tg_data in reader.target_groups.items():
+                if tg_name in self.node_positions:
+                    lb_arn = lb_data.get('LoadBalancerArn', lb_name)
+                    tg_lb_arns = tg_data.get('LoadBalancerArns', [])
+                    
+                    # 接続があるか確認
+                    if any(lb_arn in str(arn) or lb_name in str(arn) for arn in tg_lb_arns):
+                        edge_key = (lb_name, tg_name)
+                        if edge_key not in drawn_edges:
+                            lines.append(self._create_edge_svg(lb_name, tg_name, '#DD344C', True))
+                            drawn_edges.add(edge_key)
+        
+        # NAT Gateway -> Internet (同じサブネット内の最初のリソースへ)
+        # Lambda -> DynamoDB/S3 接続
+        for func_name, func_data in reader.lambda_functions.items():
+            if func_name not in self.node_positions:
+                continue
             
-            # 同じ VPC 内のリソースに接続
-            vpc_id = lb_data.get('VpcId')
-            for ec2_id, ec2_data in reader.ec2_instances.items():
-                if ec2_data.get('VpcId') == vpc_id and ec2_id in self.node_positions:
-                    ec2_pos = self.node_positions[ec2_id]
-                    lines.append(self._create_connection(
-                        lb_pos[0], lb_pos[1] + 24,
-                        ec2_pos[0], ec2_pos[1],
-                        '#232F3E', True
-                    ))
-        
-        return '\n'.join(lines)
-
-
-class SecurityGroupSVGGenerator:
-    """Security Group 関係の SVG 図を生成するクラス（あなたのサンプル画像と同じスタイル）"""
-    
-    def __init__(self, reader):
-        self.reader = reader
-        self.width = 2000
-        self.height = 1200
-        self.node_positions = {}
-    
-    def generate(self, output_dir, output_name='architecture_sg'):
-        """Security Group 関係の SVG を生成"""
-        print("\n" + "=" * 80)
-        print("Generating Security Group SVG Diagram...")
-        print("=" * 80 + "\n")
-        
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, f"{output_name}.svg")
-        
-        reader = self.reader
-        
-        # SVG コンテンツを構築
-        svg_parts = []
-        
-        # ヘッダー
-        svg_parts.append(f'''<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" 
-     width="{self.width}" height="{self.height}" 
-     viewBox="0 0 {self.width} {self.height}"
-     style="background-color: white;">
-    
-    <defs>
-        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
-                refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#232F3E"/>
-        </marker>
-        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e8e8e8" stroke-width="0.5"/>
-        </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#grid)"/>
-''')
-        
-        # VPC コンテナ
-        for vpc_id, vpc_data in reader.vpcs.items():
-            vpc_name = vpc_data.get('Name', vpc_id)
+            # DynamoDB への接続
+            for table_name in reader.dynamodb_tables.keys():
+                if table_name in self.node_positions:
+                    edge_key = (func_name, table_name)
+                    if edge_key not in drawn_edges:
+                        lines.append(self._create_edge_svg(func_name, table_name, '#ED7100', True))
+                        drawn_edges.add(edge_key)
+                        break
             
-            svg_parts.append(f'''
-    <g>
-        <text x="50" y="30" fill="#232F3E" font-size="16" font-weight="bold" 
-              text-decoration="underline">{vpc_name}</text>
-        <line x1="50" y1="35" x2="{self.width - 50}" y2="35" 
-              stroke="#00BCD4" stroke-width="2" stroke-dasharray="5,5"/>
-    </g>
-''')
+            # S3 への接続
+            for bucket_name in reader.s3_buckets.keys():
+                if bucket_name in self.node_positions:
+                    edge_key = (func_name, bucket_name)
+                    if edge_key not in drawn_edges:
+                        lines.append(self._create_edge_svg(func_name, bucket_name, '#3F8624', True))
+                        drawn_edges.add(edge_key)
+                        break
         
-        # Security Group をグループ化して描画
-        sg_groups = defaultdict(list)
-        
-        # Load Balancer を Security Group でグループ化
-        for lb_name, lb_data in reader.load_balancers.items():
-            sg_ids = lb_data.get('SecurityGroupIds', []) or lb_data.get('Properties', {}).get('SecurityGroups', [])
-            for sg_id in sg_ids:
-                sg_groups[sg_id].append(('ALB', lb_name, lb_data))
-        
-        # EC2 を Security Group でグループ化
-        for ec2_id, ec2_data in reader.ec2_instances.items():
-            sg_ids = ec2_data.get('SecurityGroupIds', []) or ec2_data.get('Properties', {}).get('SecurityGroupIds', [])
-            for sg_id in sg_ids:
-                sg_groups[sg_id].append(('EC2', ec2_id, ec2_data))
-        
-        # EKS を Security Group でグループ化
-        for eks_name, eks_data in reader.eks_clusters.items():
-            sg_id = eks_data.get('SecurityGroupId')
-            if sg_id:
-                sg_groups[sg_id].append(('EKS', eks_name, eks_data))
-        
-        # Security Group ごとに描画
-        sg_x = 60
-        sg_y = 80
-        
-        for sg_id, resources in sg_groups.items():
-            sg_data = reader.security_groups.get(sg_id, {})
-            sg_name = sg_data.get('GroupName', sg_id)
-            
-            # グループの幅を計算
-            num_resources = len(resources)
-            sg_width = max(200, (num_resources // 4 + 1) * 80 + 40)
-            sg_height = max(150, ((num_resources - 1) // 4 + 1) * 80 + 60)
-            
-            # Security Group コンテナ
-            svg_parts.append(f'''
-    <g>
-        <rect x="{sg_x}" y="{sg_y}" width="{sg_width}" height="{sg_height}" 
-              fill="none" stroke="#00BCD4" stroke-width="2" rx="5"/>
-        <text x="{sg_x + 10}" y="{sg_y + 20}" fill="#00BCD4" font-size="12" 
-              font-weight="bold" text-decoration="underline">{sg_name[:30]}</text>
-''')
-            
-            # リソースアイコンを描画
-            res_x = sg_x + 20
-            res_y = sg_y + 40
-            col = 0
-            
-            for res_type, res_id, res_data in resources:
-                res_name = res_data.get('Name', res_id) if isinstance(res_data, dict) else res_id
-                
-                # ALB スタイルのアイコン
-                svg_parts.append(f'''
-        <g transform="translate({res_x}, {res_y})">
-            <rect x="0" y="0" width="48" height="48" rx="5" fill="#8C4FFF" stroke="white" stroke-width="2"/>
-            <circle cx="15" cy="24" r="8" fill="white" stroke="#8C4FFF" stroke-width="1"/>
-            <circle cx="33" cy="15" r="6" fill="white" stroke="#8C4FFF" stroke-width="1"/>
-            <circle cx="33" cy="33" r="6" fill="white" stroke="#8C4FFF" stroke-width="1"/>
-            <line x1="20" y1="20" x2="28" y2="16" stroke="white" stroke-width="2"/>
-            <line x1="20" y1="28" x2="28" y2="32" stroke="white" stroke-width="2"/>
-            <text x="24" y="62" text-anchor="middle" fill="#232F3E" font-size="9">{res_name[:15]}</text>
-        </g>
-''')
-                self.node_positions[res_id] = (res_x + 24 + sg_x, res_y + 24 + sg_y, 48, 48)
-                
-                col += 1
-                res_x += 70
-                if col >= 4:
-                    col = 0
-                    res_x = sg_x + 20
-                    res_y += 80
-            
-            svg_parts.append('    </g>')
-            
-            sg_x += sg_width + 30
-            if sg_x > self.width - 300:
-                sg_x = 60
-                sg_y += sg_height + 50
-        
-        # 接続線を描画（Security Group 間のルール）
-        svg_parts.append(self._draw_sg_connections())
-        
-        svg_parts.append('</svg>')
-        
-        # ファイルに書き込み
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(svg_parts))
-        
-        print(f"✓ Security Group SVG diagram generated: {output_path}")
-        return output_path
-    
-    def _draw_sg_connections(self):
-        """Security Group 間の接続線を描画"""
-        lines = []
-        reader = self.reader
-        
-        # Security Group のルールから接続を抽出
-        for sg_id, sg_data in reader.security_groups.items():
-            ingress_rules = sg_data.get('Properties', {}).get('SecurityGroupIngress', [])
-            
-            for rule in ingress_rules:
-                # 他の Security Group からの許可
-                if isinstance(rule, dict):
-                    source_sg = rule.get('UserIdGroupPairs', [{}])[0].get('GroupId') if rule.get('UserIdGroupPairs') else None
-                    if source_sg and source_sg in self.node_positions and sg_id in self.node_positions:
-                        src_pos = self.node_positions[source_sg]
-                        dst_pos = self.node_positions[sg_id]
-                        lines.append(f'''
-    <line x1="{src_pos[0]}" y1="{src_pos[1]}" x2="{dst_pos[0]}" y2="{dst_pos[1]}" 
-          stroke="#232F3E" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-''')
-        
-        return '\n'.join(lines)
+        return ''.join(lines)
