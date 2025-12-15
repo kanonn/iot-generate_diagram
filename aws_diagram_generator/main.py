@@ -102,6 +102,12 @@ def main():
     )
     
     parser.add_argument(
+        '--icons-dir',
+        metavar='DIR',
+        help='AWS アイコンディレクトリ（AWS 公式アイコンを使用する場合）'
+    )
+    
+    parser.add_argument(
         '--svg-sg',
         action='store_true',
         help='Security Group 関係の SVG 図を出力'
@@ -176,7 +182,7 @@ def main():
             # SVG 形式で出力
             from svg_generator import SVGGenerator
             
-            generator = SVGGenerator(reader)
+            generator = SVGGenerator(reader, icons_dir=args.icons_dir)
             generator.generate(diagram_dir, args.output_name)
         
         elif args.svg_sg:

@@ -5,238 +5,146 @@ SVG 形式のアーキテクチャ図生成モジュール
 - VPC 内リソースと VPC 外リソースを上下に揃える
 - VPC 外リソース: 左側（無関連）、右側（関連あり）
 - アイコンサイズと間隔をグリッドに揃える（40px = 2x2 小格子）
+- AWS 公式アイコン対応（aws_icons/ フォルダから読み込み）
 """
 
 import os
 from collections import defaultdict
 import math
+import re
+import base64
 
 
 class SVGGenerator:
     """SVG 形式のアーキテクチャ図を生成するクラス"""
     
-    # AWS 公式アイコン（2025 スタイル）
-    AWS_ICONS = {
-        # Compute - オレンジ #ED7100
-        'EC2': {
-            'bg': '#ED7100',
-            'paths': [
-                'M4,8 L12,4 L20,8 L20,16 L12,20 L4,16 Z',
-                'M4,12 L20,12',
-            ]
-        },
-        'Lambda': {
-            'bg': '#ED7100',
-            'paths': [
-                'M6,5 L12,19',
-                'M12,19 L18,5',
-                'M4,19 L10,19',
-            ]
-        },
-        'EKS': {
-            'bg': '#ED7100', 
-            'paths': [
-                'M12,3 L21,12 L12,21 L3,12 Z',
-                'M12,7 L17,12 L12,17 L7,12 Z',
-            ]
-        },
-        'ECS': {
-            'bg': '#ED7100',
-            'paths': [
-                'M3,3 L21,3 L21,21 L3,21 Z',
-                'M7,7 L17,7 L17,17 L7,17 Z',
-            ]
-        },
-        'Fargate': {
-            'bg': '#ED7100',
-            'paths': [
-                'M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3',
-                'M12,7 L12,17',
-                'M7,12 L17,12',
-            ]
-        },
-        # Networking - パープル #8C4FFF
-        'ALB': {
-            'bg': '#8C4FFF',
-            'paths': [
-                'M12,3 C6,3 3,7 3,12 C3,17 6,21 12,21 C18,21 21,17 21,12 C21,7 18,3 12,3',
-                'M8,9 L8,15',
-                'M12,7 L12,17',
-                'M16,9 L16,15',
-            ]
-        },
-        'NLB': {
-            'bg': '#8C4FFF',
-            'paths': [
-                'M3,12 L9,6',
-                'M3,12 L9,18',
-                'M9,6 L15,9',
-                'M9,6 L15,12',
-                'M9,18 L15,12',
-                'M9,18 L15,15',
-                'M15,9 L21,9',
-                'M15,12 L21,12',
-                'M15,15 L21,15',
-            ]
-        },
-        'TargetGroup': {
-            'bg': '#8C4FFF',
-            'paths': [
-                'M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3',
-                'M12,6 A6,6 0 1,1 12,18 A6,6 0 1,1 12,6',
-                'M12,9 A3,3 0 1,1 12,15 A3,3 0 1,1 12,9',
-            ]
-        },
-        'VPCEndpoint': {
-            'bg': '#8C4FFF',
-            'paths': [
-                'M3,12 L7,12',
-                'M17,12 L21,12',
-                'M7,5 L17,5 L17,19 L7,19 Z',
-                'M10,9 L14,9',
-                'M10,12 L14,12',
-                'M10,15 L14,15',
-            ]
-        },
-        'InternetGateway': {
-            'bg': '#8C4FFF',
-            'paths': [
-                'M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2',
-                'M2,12 L22,12',
-                'M12,2 L12,22',
-                'M4,7 Q12,12 20,7',
-                'M4,17 Q12,12 20,17',
-            ]
-        },
-        'NATGateway': {
-            'bg': '#8C4FFF',
-            'paths': [
-                'M4,6 L20,6 L20,18 L4,18 Z',
-                'M12,9 L12,18',
-                'M8,13 L12,9 L16,13',
-            ]
-        },
-        'CloudFront': {
-            'bg': '#8C4FFF',
-            'paths': [
-                'M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2',
-                'M2,12 L22,12',
-                'M12,2 Q6,12 12,22',
-                'M12,2 Q18,12 12,22',
-            ]
-        },
-        # Database - ブルー #3B48CC
-        'RDS': {
-            'bg': '#3B48CC',
-            'paths': [
-                'M5,5 C5,3 8,2 12,2 C16,2 19,3 19,5 L19,19 C19,21 16,22 12,22 C8,22 5,21 5,19 Z',
-                'M5,5 C5,7 8,8 12,8 C16,8 19,7 19,5',
-                'M5,12 C5,14 8,15 12,15 C16,15 19,14 19,12',
-            ]
-        },
-        'DynamoDB': {
-            'bg': '#3B48CC',
-            'paths': [
-                'M12,2 L21,7 L21,17 L12,22 L3,17 L3,7 Z',
-                'M3,12 L21,12',
-                'M12,2 L12,22',
-            ]
-        },
-        'ElastiCache': {
-            'bg': '#3B48CC',
-            'paths': [
-                'M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2',
-                'M6,12 L10,8 L10,16 Z',
-                'M18,12 L14,8 L14,16 Z',
-            ]
-        },
-        # Storage - グリーン #3F8624
-        'S3': {
-            'bg': '#3F8624',
-            'paths': [
-                'M5,4 C5,3 8,2 12,2 C16,2 19,3 19,4 L19,20 C19,21 16,22 12,22 C8,22 5,21 5,20 Z',
-                'M5,4 C5,5 8,6 12,6 C16,6 19,5 19,4',
-                'M5,9 C5,10 8,11 12,11 C16,11 19,10 19,9',
-                'M5,14 C5,15 8,16 12,16 C16,16 19,15 19,14',
-            ]
-        },
-        'EFS': {
-            'bg': '#3F8624',
-            'paths': [
-                'M3,4 L21,4 L21,20 L3,20 Z',
-                'M3,8 L21,8',
-                'M3,12 L21,12',
-                'M3,16 L21,16',
-                'M9,4 L9,20',
-                'M15,4 L15,20',
-            ]
-        },
-        # Integration - ピンク #E7157B
-        'SNS': {
-            'bg': '#E7157B',
-            'paths': [
-                'M12,2 L22,12 L12,22 L2,12 Z',
-                'M12,6 L12,18',
-                'M6,12 L18,12',
-            ]
-        },
-        'SQS': {
-            'bg': '#E7157B',
-            'paths': [
-                'M3,5 L21,5 L21,19 L3,19 Z',
-                'M6,9 L18,9',
-                'M6,13 L18,13',
-                'M15,9 L18,9 L18,13',
-            ]
-        },
-        'APIGateway': {
-            'bg': '#E7157B',
-            'paths': [
-                'M2,12 L9,5 L9,19 Z',
-                'M22,12 L15,5 L15,19 Z',
-                'M9,12 L15,12',
-            ]
-        },
-        'EventBridge': {
-            'bg': '#E7157B',
-            'paths': [
-                'M3,5 L21,5 L21,19 L3,19 Z',
-                'M12,5 L12,19',
-                'M3,12 L21,12',
-                'M7,8 A3,3 0 1,1 7,16 A3,3 0 1,1 7,8',
-                'M17,8 A3,3 0 1,1 17,16 A3,3 0 1,1 17,8',
-            ]
-        },
-        # Security - レッド #DD344C
-        'SecurityGroup': {
-            'bg': '#DD344C',
-            'paths': [
-                'M12,2 L21,6 L21,14 L12,22 L3,14 L3,6 Z',
-                'M12,6 L12,14',
-                'M8,10 L16,10',
-            ]
-        },
-        'IAM': {
-            'bg': '#DD344C',
-            'paths': [
-                'M12,3 C14,3 16,5 16,7 C16,9 14,11 12,11 C10,11 8,9 8,7 C8,5 10,3 12,3',
-                'M5,21 L5,17 C5,14 8,12 12,12 C16,12 19,14 19,17 L19,21',
-            ]
-        },
+    # サービス名からアイコンファイル名へのマッピング
+    ICON_FILE_MAPPING = {
+        'EC2': 'Arch_Amazon-EC2_64.svg',
+        'Lambda': 'Arch_AWS-Lambda_64.svg',
+        'EKS': 'Arch_Amazon-Elastic-Kubernetes-Service_64.svg',
+        'ECS': 'Arch_Amazon-Elastic-Container-Service_64.svg',
+        'Fargate': 'Arch_AWS-Fargate_64.svg',
+        'ALB': 'Arch_Elastic-Load-Balancing_64.svg',
+        'NLB': 'Arch_Elastic-Load-Balancing_64.svg',
+        'TargetGroup': 'Res_Elastic-Load-Balancing_Target_48.svg',
+        'VPCEndpoint': 'Res_Amazon-VPC_Endpoints_48.svg',
+        'InternetGateway': 'Res_Amazon-VPC_Internet-Gateway_48.svg',
+        'NATGateway': 'Res_Amazon-VPC_NAT-Gateway_48.svg',
+        'CloudFront': 'Arch_Amazon-CloudFront_64.svg',
+        'RDS': 'Arch_Amazon-RDS_64.svg',
+        'DynamoDB': 'Arch_Amazon-DynamoDB_64.svg',
+        'ElastiCache': 'Arch_Amazon-ElastiCache_64.svg',
+        'S3': 'Arch_Amazon-Simple-Storage-Service_64.svg',
+        'EFS': 'Arch_Amazon-EFS_64.svg',
+        'SNS': 'Arch_Amazon-Simple-Notification-Service_64.svg',
+        'SQS': 'Arch_Amazon-Simple-Queue-Service_64.svg',
+        'APIGateway': 'Arch_Amazon-API-Gateway_64.svg',
+        'EventBridge': 'Arch_Amazon-EventBridge_64.svg',
+        'SecurityGroup': 'Res_Amazon-VPC_Security-Group_48.svg',
+        'IAM': 'Arch_AWS-Identity-and-Access-Management_64.svg',
+    }
+    
+    # デフォルトアイコン（公式アイコンがない場合に使用）
+    DEFAULT_ICONS = {
+        'EC2': {'bg': '#ED7100', 'paths': ['M4,8 L12,4 L20,8 L20,16 L12,20 L4,16 Z', 'M4,12 L20,12']},
+        'Lambda': {'bg': '#ED7100', 'paths': ['M6,5 L12,19', 'M12,19 L18,5', 'M4,19 L10,19']},
+        'EKS': {'bg': '#ED7100', 'paths': ['M12,3 L21,12 L12,21 L3,12 Z', 'M12,7 L17,12 L12,17 L7,12 Z']},
+        'ECS': {'bg': '#ED7100', 'paths': ['M3,3 L21,3 L21,21 L3,21 Z', 'M7,7 L17,7 L17,17 L7,17 Z']},
+        'Fargate': {'bg': '#ED7100', 'paths': ['M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3', 'M12,7 L12,17', 'M7,12 L17,12']},
+        'ALB': {'bg': '#8C4FFF', 'paths': ['M12,3 C6,3 3,7 3,12 C3,17 6,21 12,21 C18,21 21,17 21,12 C21,7 18,3 12,3', 'M8,9 L8,15', 'M12,7 L12,17', 'M16,9 L16,15']},
+        'NLB': {'bg': '#8C4FFF', 'paths': ['M3,12 L9,6', 'M3,12 L9,18', 'M9,6 L15,9', 'M9,6 L15,12', 'M9,18 L15,12', 'M9,18 L15,15', 'M15,9 L21,9', 'M15,12 L21,12', 'M15,15 L21,15']},
+        'TargetGroup': {'bg': '#8C4FFF', 'paths': ['M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3', 'M12,6 A6,6 0 1,1 12,18 A6,6 0 1,1 12,6', 'M12,9 A3,3 0 1,1 12,15 A3,3 0 1,1 12,9']},
+        'VPCEndpoint': {'bg': '#8C4FFF', 'paths': ['M3,12 L7,12', 'M17,12 L21,12', 'M7,5 L17,5 L17,19 L7,19 Z', 'M10,9 L14,9', 'M10,12 L14,12', 'M10,15 L14,15']},
+        'InternetGateway': {'bg': '#8C4FFF', 'paths': ['M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2', 'M2,12 L22,12', 'M12,2 L12,22', 'M4,7 Q12,12 20,7', 'M4,17 Q12,12 20,17']},
+        'NATGateway': {'bg': '#8C4FFF', 'paths': ['M4,6 L20,6 L20,18 L4,18 Z', 'M12,9 L12,18', 'M8,13 L12,9 L16,13']},
+        'CloudFront': {'bg': '#8C4FFF', 'paths': ['M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2', 'M2,12 L22,12', 'M12,2 Q6,12 12,22', 'M12,2 Q18,12 12,22']},
+        'RDS': {'bg': '#3B48CC', 'paths': ['M5,5 C5,3 8,2 12,2 C16,2 19,3 19,5 L19,19 C19,21 16,22 12,22 C8,22 5,21 5,19 Z', 'M5,5 C5,7 8,8 12,8 C16,8 19,7 19,5', 'M5,12 C5,14 8,15 12,15 C16,15 19,14 19,12']},
+        'DynamoDB': {'bg': '#3B48CC', 'paths': ['M12,2 L21,7 L21,17 L12,22 L3,17 L3,7 Z', 'M3,12 L21,12', 'M12,2 L12,22']},
+        'ElastiCache': {'bg': '#3B48CC', 'paths': ['M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2', 'M6,12 L10,8 L10,16 Z', 'M18,12 L14,8 L14,16 Z']},
+        'S3': {'bg': '#3F8624', 'paths': ['M5,4 C5,3 8,2 12,2 C16,2 19,3 19,4 L19,20 C19,21 16,22 12,22 C8,22 5,21 5,20 Z', 'M5,4 C5,5 8,6 12,6 C16,6 19,5 19,4', 'M5,9 C5,10 8,11 12,11 C16,11 19,10 19,9', 'M5,14 C5,15 8,16 12,16 C16,16 19,15 19,14']},
+        'EFS': {'bg': '#3F8624', 'paths': ['M3,4 L21,4 L21,20 L3,20 Z', 'M3,8 L21,8', 'M3,12 L21,12', 'M3,16 L21,16', 'M9,4 L9,20', 'M15,4 L15,20']},
+        'SNS': {'bg': '#E7157B', 'paths': ['M12,2 L22,12 L12,22 L2,12 Z', 'M12,6 L12,18', 'M6,12 L18,12']},
+        'SQS': {'bg': '#E7157B', 'paths': ['M3,5 L21,5 L21,19 L3,19 Z', 'M6,9 L18,9', 'M6,13 L18,13', 'M15,9 L18,9 L18,13']},
+        'APIGateway': {'bg': '#E7157B', 'paths': ['M2,12 L9,5 L9,19 Z', 'M22,12 L15,5 L15,19 Z', 'M9,12 L15,12']},
+        'EventBridge': {'bg': '#E7157B', 'paths': ['M3,5 L21,5 L21,19 L3,19 Z', 'M12,5 L12,19', 'M3,12 L21,12', 'M7,8 A3,3 0 1,1 7,16 A3,3 0 1,1 7,8', 'M17,8 A3,3 0 1,1 17,16 A3,3 0 1,1 17,8']},
+        'SecurityGroup': {'bg': '#DD344C', 'paths': ['M12,2 L21,6 L21,14 L12,22 L3,14 L3,6 Z', 'M12,6 L12,14', 'M8,10 L16,10']},
+        'IAM': {'bg': '#DD344C', 'paths': ['M12,3 C14,3 16,5 16,7 C16,9 14,11 12,11 C10,11 8,9 8,7 C8,5 10,3 12,3', 'M5,21 L5,17 C5,14 8,12 12,12 C16,12 19,14 19,17 L19,21']},
+        'Default': {'bg': '#232F3E', 'paths': ['M4,4 L20,4 L20,20 L4,20 Z', 'M8,8 L16,8 L16,16 L8,16 Z']},
     }
     
     # グリッド設定
     GRID_SIZE = 20  # 小格子サイズ
     ICON_SIZE = 40  # アイコンサイズ（2x2 小格子）
-    ICON_SPACING = 60  # アイコン間隔（3 小格子）
+    ICON_SPACING = 120  # アイコン間隔（アイコン40px + 間隔80px = 120px）
     
-    def __init__(self, reader):
+    def __init__(self, reader, icons_dir=None):
         self.reader = reader
         self.node_positions = {}
         self.relationships_map = defaultdict(list)
         self.reverse_relationships = defaultdict(list)
         self.vpc_resource_ids = set()
         self.external_resource_ids = set()
+        
+        # アイコンディレクトリを設定
+        if icons_dir:
+            self.icons_dir = icons_dir
+        else:
+            # デフォルト: スクリプトと同じディレクトリの aws_icons/
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            self.icons_dir = os.path.join(script_dir, 'aws_icons')
+        
+        # 読み込んだアイコンをキャッシュ
+        self.icon_cache = {}
+        
+        # アイコンディレクトリの存在確認
+        if os.path.exists(self.icons_dir):
+            print(f"  Using AWS icons from: {self.icons_dir}")
+        else:
+            print(f"  AWS icons directory not found: {self.icons_dir}")
+            print(f"  Using default built-in icons")
+    
+    def _find_icon_file(self, icon_type):
+        """アイコンファイルを検索"""
+        if not os.path.exists(self.icons_dir):
+            return None
+        
+        # マッピングからファイル名を取得
+        target_filename = self.ICON_FILE_MAPPING.get(icon_type)
+        if not target_filename:
+            return None
+        
+        # ディレクトリを再帰的に検索
+        for root, dirs, files in os.walk(self.icons_dir):
+            for file in files:
+                if file == target_filename:
+                    return os.path.join(root, file)
+                # 部分一致も試す（64/ や 48/ フォルダ対応）
+                if target_filename.replace('_64.svg', '').replace('_48.svg', '') in file:
+                    if file.endswith('.svg'):
+                        return os.path.join(root, file)
+        
+        return None
+    
+    def _load_svg_icon(self, icon_type):
+        """SVG アイコンを読み込み"""
+        if icon_type in self.icon_cache:
+            return self.icon_cache[icon_type]
+        
+        icon_path = self._find_icon_file(icon_type)
+        if icon_path and os.path.exists(icon_path):
+            try:
+                with open(icon_path, 'r', encoding='utf-8') as f:
+                    svg_content = f.read()
+                self.icon_cache[icon_type] = ('file', svg_content, icon_path)
+                return self.icon_cache[icon_type]
+            except Exception as e:
+                print(f"  Warning: Failed to load icon {icon_path}: {e}")
+        
+        # ファイルがない場合はデフォルトアイコン
+        default = self.DEFAULT_ICONS.get(icon_type, self.DEFAULT_ICONS['Default'])
+        self.icon_cache[icon_type] = ('default', default, None)
+        return self.icon_cache[icon_type]
         
     def _get_property(self, data, *keys):
         if not data:
@@ -309,12 +217,55 @@ class SVGGenerator:
         if size is None:
             size = self.ICON_SIZE
         
-        icon_def = self.AWS_ICONS.get(icon_type, {'bg': '#232F3E', 'paths': ['M4,4 L20,4 L20,20 L4,20 Z']})
+        short_label = str(label)[:14] if label else ''
+        self.node_positions[res_id] = (x + size/2, y + size/2, size, size)
+        
+        # アイコンを読み込み
+        icon_source, icon_data, icon_path = self._load_svg_icon(icon_type)
+        
+        if icon_source == 'file':
+            # 公式 SVG ファイルを使用
+            return self._create_icon_from_svg_file(icon_data, x, y, res_id, short_label, size)
+        else:
+            # デフォルトアイコンを使用
+            return self._create_icon_from_default(icon_data, x, y, res_id, short_label, size)
+    
+    def _create_icon_from_svg_file(self, svg_content, x, y, res_id, label, size):
+        """公式 SVG ファイルからアイコンを作成"""
+        # SVG の viewBox を取得
+        viewbox_match = re.search(r'viewBox="([^"]+)"', svg_content)
+        if viewbox_match:
+            vb = viewbox_match.group(1).split()
+            if len(vb) == 4:
+                vb_width = float(vb[2])
+                vb_height = float(vb[3])
+            else:
+                vb_width = vb_height = 64
+        else:
+            vb_width = vb_height = 64
+        
+        # SVG の内部コンテンツを抽出（<svg>タグの中身）
+        inner_match = re.search(r'<svg[^>]*>(.*)</svg>', svg_content, re.DOTALL)
+        if inner_match:
+            inner_content = inner_match.group(1)
+        else:
+            inner_content = svg_content
+        
+        # スケール計算
+        scale = size / max(vb_width, vb_height)
+        
+        return f'''    <g id="{res_id}" transform="translate({x},{y})">
+      <g transform="scale({scale:.4f})">
+{inner_content}
+      </g>
+      <text x="{size/2}" y="{size + 12}" text-anchor="middle" fill="#333" font-size="9">{label}</text>
+    </g>
+'''
+    
+    def _create_icon_from_default(self, icon_def, x, y, res_id, label, size):
+        """デフォルトアイコンを作成"""
         bg_color = icon_def['bg']
         paths = icon_def['paths']
-        short_label = str(label)[:14] if label else ''
-        
-        self.node_positions[res_id] = (x + size/2, y + size/2, size, size)
         scale = size / 24
         
         path_elements = ''
@@ -325,7 +276,7 @@ class SVGGenerator:
       <rect x="0" y="0" width="{size}" height="{size}" rx="4" fill="{bg_color}"/>
       <g transform="scale({scale:.3f})">
 {path_elements}      </g>
-      <text x="{size/2}" y="{size + 12}" text-anchor="middle" fill="#333" font-size="9">{short_label}</text>
+      <text x="{size/2}" y="{size + 12}" text-anchor="middle" fill="#333" font-size="9">{label}</text>
     </g>
 '''
     
