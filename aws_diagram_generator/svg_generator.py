@@ -2,6 +2,7 @@
 """
 SVG 形式のアーキテクチャ図生成モジュール（完全版）
 全てのリソースを表示し、関係線を描画する
+CloudFormation からのインポートデータに対応
 """
 
 import os
@@ -68,8 +69,6 @@ class SVGGenerator:
     def __init__(self, reader):
         self.reader = reader
         self.node_positions = {}  # リソース ID -> (x, y, width, height)
-        self.all_nodes = []  # 全てのノード情報
-        self.all_edges = []  # 全てのエッジ情報
         
         # サブネットごとのリソース（全て個別に保存）
         self.subnet_resources = defaultdict(list)
@@ -79,6 +78,44 @@ class SVGGenerator:
         
         # 外部リソース
         self.external_resources = []
+    
+    def _get_property(self, data, *keys):
+        """
+        リソースデータからプロパティを取得
+        CloudFormation 形式と API 形式の両方に対応
+        """
+        # 直接のキーを試す
+        for key in keys:
+            if key in data:
+                return data[key]
+        
+        # Properties 内を試す
+        props = data.get('Properties', {})
+        if props:
+            for key in keys:
+                if key in props:
+                    return props[key]
+        
+        return None
+    
+    def _get_name(self, res_id, res_data):
+        """リソース名を取得"""
+        # Name タグから
+        name = self._get_property(res_data, 'Name')
+        if name:
+            return name
+        
+        # Tags から
+        tags = self._get_property(res_data, 'Tags')
+        if tags:
+            if isinstance(tags, list):
+                for tag in tags:
+                    if isinstance(tag, dict) and tag.get('Key') == 'Name':
+                        return tag.get('Value', res_id)
+            elif isinstance(tags, dict):
+                return tags.get('Name', res_id)
+        
+        return res_id
     
     def _organize_all_resources(self):
         """全てのリソースを整理（聚合なし）"""
@@ -103,157 +140,243 @@ class SVGGenerator:
         print(f"  Processing EFS Filesystems: {len(reader.efs_filesystems)}")
         print(f"  Processing Security Groups: {len(reader.security_groups)}")
         
+        # サブネット ID -> VPC ID のマッピングを構築
+        subnet_to_vpc = {}
+        for subnet_id, subnet_data in reader.subnets.items():
+            vpc_id = self._get_property(subnet_data, 'VpcId')
+            if vpc_id:
+                subnet_to_vpc[subnet_id] = vpc_id
+        
         # EC2 -> Subnet
         for ec2_id, ec2_data in reader.ec2_instances.items():
-            subnet_id = ec2_data.get('SubnetId') or ec2_data.get('Properties', {}).get('SubnetId')
-            name = ec2_data.get('Name', ec2_id)
+            subnet_id = self._get_property(ec2_data, 'SubnetId')
+            name = self._get_name(ec2_id, ec2_data)
+            
             if subnet_id and subnet_id in reader.subnets:
                 self.subnet_resources[subnet_id].append(('EC2', ec2_id, name, ec2_data))
             else:
-                # サブネット不明の場合は VPC に
-                vpc_id = ec2_data.get('VpcId')
-                if vpc_id:
+                # VPC に配置
+                vpc_id = self._get_property(ec2_data, 'VpcId')
+                if vpc_id and vpc_id in reader.vpcs:
                     self.vpc_resources[vpc_id].append(('EC2', ec2_id, name, ec2_data))
+                else:
+                    # どこにも属さない場合は最初の VPC に
+                    if reader.vpcs:
+                        first_vpc = list(reader.vpcs.keys())[0]
+                        self.vpc_resources[first_vpc].append(('EC2', ec2_id, name, ec2_data))
         
         # ECS Service -> Subnet
         for svc_name, svc_data in reader.ecs_services.items():
-            subnet_ids = svc_data.get('SubnetIds', [])
-            name = svc_data.get('Name', svc_name)
-            if subnet_ids:
-                for subnet_id in subnet_ids:
-                    if subnet_id in reader.subnets:
-                        self.subnet_resources[subnet_id].append(('Fargate', svc_name, name, svc_data))
-                        break
-            else:
-                vpc_id = svc_data.get('VpcId')
-                if vpc_id:
+            subnet_ids = self._get_property(svc_data, 'SubnetIds', 'Subnets') or []
+            name = self._get_name(svc_name, svc_data)
+            
+            placed = False
+            for subnet_id in subnet_ids:
+                if subnet_id in reader.subnets:
+                    self.subnet_resources[subnet_id].append(('Fargate', svc_name, name, svc_data))
+                    placed = True
+                    break
+            
+            if not placed:
+                vpc_id = self._get_property(svc_data, 'VpcId')
+                if vpc_id and vpc_id in reader.vpcs:
                     self.vpc_resources[vpc_id].append(('Fargate', svc_name, name, svc_data))
+                elif reader.vpcs:
+                    first_vpc = list(reader.vpcs.keys())[0]
+                    self.vpc_resources[first_vpc].append(('Fargate', svc_name, name, svc_data))
         
         # EKS Cluster -> Subnet
         for cluster_name, cluster_data in reader.eks_clusters.items():
-            subnet_ids = cluster_data.get('SubnetIds', [])
-            name = cluster_data.get('Name', cluster_name)
-            if subnet_ids:
-                for subnet_id in subnet_ids:
-                    if subnet_id in reader.subnets:
-                        self.subnet_resources[subnet_id].append(('EKS', cluster_name, name, cluster_data))
-                        break
-            else:
-                vpc_id = cluster_data.get('VpcId')
-                if vpc_id:
+            subnet_ids = self._get_property(cluster_data, 'SubnetIds', 'Subnets') or []
+            name = self._get_name(cluster_name, cluster_data)
+            
+            placed = False
+            for subnet_id in subnet_ids:
+                if subnet_id in reader.subnets:
+                    self.subnet_resources[subnet_id].append(('EKS', cluster_name, name, cluster_data))
+                    placed = True
+                    break
+            
+            if not placed:
+                vpc_id = self._get_property(cluster_data, 'VpcId')
+                if vpc_id and vpc_id in reader.vpcs:
                     self.vpc_resources[vpc_id].append(('EKS', cluster_name, name, cluster_data))
+                elif reader.vpcs:
+                    first_vpc = list(reader.vpcs.keys())[0]
+                    self.vpc_resources[first_vpc].append(('EKS', cluster_name, name, cluster_data))
         
         # Lambda -> Subnet (VPC Lambda) or External
         for func_name, func_data in reader.lambda_functions.items():
-            subnet_ids = func_data.get('SubnetIds', [])
-            name = func_data.get('Name', func_name)
+            subnet_ids = self._get_property(func_data, 'SubnetIds', 'VpcConfig.SubnetIds') or []
+            
+            # VpcConfig から SubnetIds を取得
+            vpc_config = self._get_property(func_data, 'VpcConfig')
+            if vpc_config and isinstance(vpc_config, dict):
+                subnet_ids = vpc_config.get('SubnetIds', []) or subnet_ids
+            
+            name = self._get_name(func_name, func_data)
+            
+            placed = False
             if subnet_ids:
                 for subnet_id in subnet_ids:
                     if subnet_id in reader.subnets:
                         self.subnet_resources[subnet_id].append(('Lambda', func_name, name, func_data))
+                        placed = True
                         break
-            else:
+            
+            if not placed:
                 # VPC 外の Lambda
                 self.external_resources.append(('Lambda', func_name, name, func_data))
         
         # RDS -> Subnet
         for db_id, db_data in reader.rds_instances.items():
-            subnet_ids = db_data.get('SubnetIds', [])
-            name = db_data.get('Name', db_id)
-            if subnet_ids:
+            subnet_ids = self._get_property(db_data, 'SubnetIds', 'DBSubnetGroupName') or []
+            name = self._get_name(db_id, db_data)
+            
+            placed = False
+            if isinstance(subnet_ids, list):
                 for subnet_id in subnet_ids:
                     if subnet_id in reader.subnets:
                         self.subnet_resources[subnet_id].append(('RDS', db_id, name, db_data))
+                        placed = True
                         break
-            else:
-                vpc_id = db_data.get('VpcId')
-                if vpc_id:
+            
+            if not placed:
+                vpc_id = self._get_property(db_data, 'VpcId')
+                if vpc_id and vpc_id in reader.vpcs:
                     self.vpc_resources[vpc_id].append(('RDS', db_id, name, db_data))
+                elif reader.vpcs:
+                    first_vpc = list(reader.vpcs.keys())[0]
+                    self.vpc_resources[first_vpc].append(('RDS', db_id, name, db_data))
         
-        # ElastiCache -> Subnet
+        # ElastiCache -> VPC
         for cache_id, cache_data in reader.elasticache_clusters.items():
-            subnet_ids = cache_data.get('SubnetIds', [])
-            name = cache_data.get('Name', cache_id)
-            if subnet_ids:
-                for subnet_id in subnet_ids:
-                    if subnet_id in reader.subnets:
-                        self.subnet_resources[subnet_id].append(('ElastiCache', cache_id, name, cache_data))
-                        break
-            else:
-                vpc_id = cache_data.get('VpcId')
-                if vpc_id:
-                    self.vpc_resources[vpc_id].append(('ElastiCache', cache_id, name, cache_data))
+            name = self._get_name(cache_id, cache_data)
+            vpc_id = self._get_property(cache_data, 'VpcId')
+            
+            if vpc_id and vpc_id in reader.vpcs:
+                self.vpc_resources[vpc_id].append(('ElastiCache', cache_id, name, cache_data))
+            elif reader.vpcs:
+                first_vpc = list(reader.vpcs.keys())[0]
+                self.vpc_resources[first_vpc].append(('ElastiCache', cache_id, name, cache_data))
         
         # NAT Gateway -> Subnet
         for nat_id, nat_data in reader.nat_gateways.items():
-            subnet_id = nat_data.get('SubnetId') or nat_data.get('Properties', {}).get('SubnetId')
-            name = nat_data.get('Name', nat_id)
+            subnet_id = self._get_property(nat_data, 'SubnetId')
+            name = self._get_name(nat_id, nat_data)
+            
             if subnet_id and subnet_id in reader.subnets:
                 self.subnet_resources[subnet_id].append(('NATGateway', nat_id, name, nat_data))
+            elif reader.vpcs:
+                first_vpc = list(reader.vpcs.keys())[0]
+                self.vpc_resources[first_vpc].append(('NATGateway', nat_id, name, nat_data))
         
-        # VPC Endpoint -> Subnet（全て表示）
+        # VPC Endpoint -> Subnet or VPC
         for ep_id, ep_data in reader.vpc_endpoints.items():
-            subnet_ids = ep_data.get('SubnetIds', []) or ep_data.get('Properties', {}).get('SubnetIds', [])
-            service_name = ep_data.get('ServiceName', ep_id)
+            subnet_ids = self._get_property(ep_data, 'SubnetIds') or []
+            service_name = self._get_property(ep_data, 'ServiceName') or ep_id
             name = service_name.split('.')[-1] if '.' in service_name else service_name
+            
+            placed = False
             if subnet_ids:
                 for subnet_id in subnet_ids:
                     if subnet_id in reader.subnets:
                         self.subnet_resources[subnet_id].append(('VPCEndpoint', ep_id, name, ep_data))
+                        placed = True
                         break
-            else:
-                vpc_id = ep_data.get('VpcId')
-                if vpc_id:
-                    self.vpc_resources[vpc_id].append(('VPCEndpoint', ep_id, name, ep_data))
-        
-        # Load Balancer -> Subnet（全て表示）
-        for lb_name, lb_data in reader.load_balancers.items():
-            subnet_ids = lb_data.get('SubnetIds', []) or lb_data.get('Properties', {}).get('Subnets', [])
-            lb_type = lb_data.get('LoadBalancerType', lb_data.get('Properties', {}).get('Type', 'application'))
-            icon_type = 'NLB' if 'network' in str(lb_type).lower() else 'ALB'
-            name = lb_data.get('Name', lb_name)
             
+            if not placed:
+                vpc_id = self._get_property(ep_data, 'VpcId')
+                if vpc_id and vpc_id in reader.vpcs:
+                    self.vpc_resources[vpc_id].append(('VPCEndpoint', ep_id, name, ep_data))
+                elif reader.vpcs:
+                    first_vpc = list(reader.vpcs.keys())[0]
+                    self.vpc_resources[first_vpc].append(('VPCEndpoint', ep_id, name, ep_data))
+        
+        # Load Balancer -> Subnet or VPC
+        for lb_name, lb_data in reader.load_balancers.items():
+            subnet_ids = self._get_property(lb_data, 'SubnetIds', 'Subnets') or []
+            lb_type = self._get_property(lb_data, 'LoadBalancerType', 'Type') or 'application'
+            icon_type = 'NLB' if 'network' in str(lb_type).lower() else 'ALB'
+            name = self._get_name(lb_name, lb_data)
+            
+            placed = False
             if subnet_ids:
                 for subnet_id in subnet_ids:
                     if subnet_id in reader.subnets:
                         self.subnet_resources[subnet_id].append((icon_type, lb_name, name, lb_data))
+                        placed = True
                         break
-            else:
-                vpc_id = lb_data.get('VpcId')
-                if vpc_id:
+            
+            if not placed:
+                vpc_id = self._get_property(lb_data, 'VpcId')
+                if vpc_id and vpc_id in reader.vpcs:
                     self.vpc_resources[vpc_id].append((icon_type, lb_name, name, lb_data))
+                elif reader.vpcs:
+                    first_vpc = list(reader.vpcs.keys())[0]
+                    self.vpc_resources[first_vpc].append((icon_type, lb_name, name, lb_data))
                 else:
                     self.external_resources.append((icon_type, lb_name, name, lb_data))
         
-        # Target Group -> VPC（全て表示）
+        # Target Group -> VPC
         for tg_name, tg_data in reader.target_groups.items():
-            vpc_id = tg_data.get('VpcId') or tg_data.get('Properties', {}).get('VpcId')
-            name = tg_data.get('Name', tg_name)
+            vpc_id = self._get_property(tg_data, 'VpcId')
+            name = self._get_name(tg_name, tg_data)
+            
             if vpc_id and vpc_id in reader.vpcs:
                 self.vpc_resources[vpc_id].append(('TargetGroup', tg_name, name, tg_data))
+            elif reader.vpcs:
+                first_vpc = list(reader.vpcs.keys())[0]
+                self.vpc_resources[first_vpc].append(('TargetGroup', tg_name, name, tg_data))
             else:
                 self.external_resources.append(('TargetGroup', tg_name, name, tg_data))
         
+        # Security Groups -> VPC
+        for sg_id, sg_data in reader.security_groups.items():
+            vpc_id = self._get_property(sg_data, 'VpcId')
+            name = self._get_property(sg_data, 'GroupName') or self._get_name(sg_id, sg_data)
+            
+            if vpc_id and vpc_id in reader.vpcs:
+                self.vpc_resources[vpc_id].append(('SecurityGroup', sg_id, name, sg_data))
+            elif reader.vpcs:
+                first_vpc = list(reader.vpcs.keys())[0]
+                self.vpc_resources[first_vpc].append(('SecurityGroup', sg_id, name, sg_data))
+        
+        # Internet Gateways -> VPC
+        for igw_id, igw_data in reader.internet_gateways.items():
+            vpc_id = self._get_property(igw_data, 'AttachedVpcId', 'VpcId')
+            name = self._get_name(igw_id, igw_data)
+            
+            if vpc_id and vpc_id in reader.vpcs:
+                self.vpc_resources[vpc_id].append(('InternetGateway', igw_id, name, igw_data))
+            elif reader.vpcs:
+                first_vpc = list(reader.vpcs.keys())[0]
+                self.vpc_resources[first_vpc].append(('InternetGateway', igw_id, name, igw_data))
+        
         # 外部リソース（全て表示）
         for bucket_name, bucket_data in reader.s3_buckets.items():
-            name = bucket_data.get('Name', bucket_name)
+            name = self._get_name(bucket_name, bucket_data)
             self.external_resources.append(('S3', bucket_name, name, bucket_data))
         
         for table_name, table_data in reader.dynamodb_tables.items():
-            name = table_data.get('Name', table_name)
+            name = self._get_name(table_name, table_data)
             self.external_resources.append(('DynamoDB', table_name, name, table_data))
         
         for queue_name, queue_data in reader.sqs_queues.items():
-            name = queue_data.get('Name', queue_name)
+            name = self._get_name(queue_name, queue_data)
             self.external_resources.append(('SQS', queue_name, name, queue_data))
         
         for topic_name, topic_data in reader.sns_topics.items():
-            name = topic_data.get('Name', topic_name)
+            name = self._get_name(topic_name, topic_data)
             self.external_resources.append(('SNS', topic_name, name, topic_data))
         
         for fs_id, fs_data in reader.efs_filesystems.items():
-            name = fs_data.get('Name', fs_id)
+            name = self._get_name(fs_id, fs_data)
             self.external_resources.append(('EFS', fs_id, name, fs_data))
+        
+        for role_name, role_data in reader.iam_roles.items():
+            name = self._get_name(role_name, role_data)
+            self.external_resources.append(('IAM', role_name, name, role_data))
         
         # 統計を表示
         total_in_subnet = sum(len(v) for v in self.subnet_resources.values())
@@ -270,7 +393,7 @@ class SVGGenerator:
         color = self.ICON_COLORS.get(icon_type, self.ICON_COLORS['default'])
         
         # ラベルを短縮
-        short_label = label[:20] if len(label) > 20 else label
+        short_label = str(label)[:20] if label else ''
         
         # ノード位置を記録
         self.node_positions[res_id] = (x + size/2, y + size/2, size, size)
@@ -314,19 +437,21 @@ class SVGGenerator:
             'TargetGroup': 'TG',
             'SecurityGroup': 'SG',
             'APIGateway': 'API',
+            'IAM': 'IAM',
         }
         return symbols.get(icon_type, icon_type[:3])
     
     def _create_container_svg(self, x, y, width, height, label, color, dashed=False):
         """コンテナ（グループ枠）の SVG を作成"""
         dash_style = 'stroke-dasharray="8,4"' if dashed else ''
+        short_label = str(label)[:40] if label else ''
         
         return f'''    <g>
       <rect x="{x}" y="{y}" width="{width}" height="{height}" 
             fill="none" stroke="{color}" stroke-width="2" rx="5" ry="5" {dash_style}/>
       <text x="{x + 10}" y="{y + 18}" 
             fill="{color}" font-size="12" font-weight="bold" text-decoration="underline">
-        {label}
+        {short_label}
       </text>
     </g>
 '''
@@ -380,25 +505,35 @@ class SVGGenerator:
         for subnet_id, resources in self.subnet_resources.items():
             max_resources_per_subnet = max(max_resources_per_subnet, len(resources))
         
+        # 各 VPC のリソース数
+        max_resources_per_vpc = 1
+        for vpc_id, resources in self.vpc_resources.items():
+            max_resources_per_vpc = max(max_resources_per_vpc, len(resources))
+        
         # 列数（1サブネット内）
-        cols_per_subnet = min(4, max(1, int(math.ceil(math.sqrt(max_resources_per_subnet)))))
+        cols_per_subnet = min(5, max(1, int(math.ceil(math.sqrt(max_resources_per_subnet)))))
         
         # サブネット幅
         subnet_width = cols_per_subnet * 70 + 40
-        subnet_width = max(160, subnet_width)
+        subnet_width = max(180, subnet_width)
         
         # VPC ごとのサブネット数
         vpc_subnet_count = defaultdict(int)
         for subnet_id, subnet_data in reader.subnets.items():
-            vpc_id = subnet_data.get('VpcId') or subnet_data.get('Properties', {}).get('VpcId')
+            vpc_id = self._get_property(subnet_data, 'VpcId')
             if vpc_id:
                 vpc_subnet_count[vpc_id] += 1
         
         max_subnets_per_vpc = max(vpc_subnet_count.values()) if vpc_subnet_count else 1
         
         # VPC 幅
-        vpc_width = max_subnets_per_vpc * (subnet_width + 20) + 60
-        vpc_width = max(400, vpc_width)
+        vpc_width = max_subnets_per_vpc * (subnet_width + 20) + 80
+        vpc_width = max(500, vpc_width)
+        
+        # VPC リソースの列数
+        vpc_res_cols = min(8, max(1, int(math.ceil(math.sqrt(max_resources_per_vpc)))))
+        vpc_res_width = vpc_res_cols * 70 + 40
+        vpc_width = max(vpc_width, vpc_res_width + 60)
         
         # 外部リソースの列数
         external_cols = min(6, max(1, int(math.ceil(math.sqrt(len(self.external_resources))))))
@@ -410,13 +545,13 @@ class SVGGenerator:
         # 高さ計算
         rows_per_subnet = max(1, int(math.ceil(max_resources_per_subnet / cols_per_subnet)))
         subnet_height = rows_per_subnet * 70 + 60
-        subnet_height = max(120, subnet_height)
+        subnet_height = max(140, subnet_height)
         
-        vpc_height = subnet_height + 80
-        for vpc_id, count in vpc_subnet_count.items():
-            vpc_res_count = len(self.vpc_resources.get(vpc_id, []))
-            vpc_res_height = int(math.ceil(vpc_res_count / 4)) * 70 + 40 if vpc_res_count else 0
-            vpc_height = max(vpc_height, subnet_height + vpc_res_height + 100)
+        # VPC リソースの高さ
+        vpc_res_rows = max(1, int(math.ceil(max_resources_per_vpc / vpc_res_cols)))
+        vpc_res_height = vpc_res_rows * 70 + 40
+        
+        vpc_height = subnet_height + vpc_res_height + 100
         
         total_height = len(reader.vpcs) * (vpc_height + 40) + 100
         
@@ -433,6 +568,8 @@ class SVGGenerator:
             'subnet_width': subnet_width,
             'subnet_height': subnet_height,
             'cols_per_subnet': cols_per_subnet,
+            'vpc_res_cols': vpc_res_cols,
+            'vpc_res_height': vpc_res_height,
             'external_width': external_width,
             'external_cols': external_cols,
         }
@@ -473,20 +610,21 @@ class SVGGenerator:
         # VPC ごとに描画
         vpc_y = 50
         for vpc_id, vpc_data in reader.vpcs.items():
-            vpc_name = vpc_data.get('Name', vpc_id)
-            cidr = vpc_data.get('CidrBlock', '')
+            vpc_name = self._get_name(vpc_id, vpc_data)
+            cidr = self._get_property(vpc_data, 'CidrBlock') or ''
             
             # この VPC のサブネットを取得
-            vpc_subnets = {
-                sid: sdata for sid, sdata in reader.subnets.items()
-                if (sdata.get('VpcId') or sdata.get('Properties', {}).get('VpcId')) == vpc_id
-            }
+            vpc_subnets = {}
+            for sid, sdata in reader.subnets.items():
+                subnet_vpc_id = self._get_property(sdata, 'VpcId')
+                if subnet_vpc_id == vpc_id:
+                    vpc_subnets[sid] = sdata
             
             # VPC の高さを計算
             num_subnets = len(vpc_subnets)
             vpc_res_count = len(self.vpc_resources.get(vpc_id, []))
-            vpc_res_rows = int(math.ceil(vpc_res_count / 4)) if vpc_res_count else 0
-            actual_vpc_height = layout['subnet_height'] + vpc_res_rows * 70 + 100
+            vpc_res_rows = int(math.ceil(vpc_res_count / layout['vpc_res_cols'])) if vpc_res_count else 0
+            actual_vpc_height = layout['subnet_height'] + vpc_res_rows * 70 + 120
             actual_vpc_height = max(layout['vpc_height'], actual_vpc_height)
             
             # VPC コンテナ
@@ -501,8 +639,9 @@ class SVGGenerator:
             subnet_y = vpc_y + 40
             
             for subnet_id, subnet_data in vpc_subnets.items():
-                subnet_name = subnet_data.get('Name', subnet_id)
-                is_public = subnet_data.get('IsPublic', False)
+                subnet_name = self._get_name(subnet_id, subnet_data)
+                is_public = self._get_property(subnet_data, 'IsPublic') or False
+                az = self._get_property(subnet_data, 'AvailabilityZone') or ''
                 
                 color = self.CONTAINER_COLORS['subnet_public' if is_public else 'subnet_private']
                 
@@ -513,9 +652,13 @@ class SVGGenerator:
                 actual_subnet_height = max(layout['subnet_height'], actual_subnet_height)
                 
                 # サブネットコンテナ
+                subnet_label = f"{subnet_name[:25]}"
+                if az:
+                    subnet_label += f" ({az[-2:]})"
+                
                 svg_parts.append(self._create_container_svg(
                     subnet_x, subnet_y, layout['subnet_width'], actual_subnet_height,
-                    subnet_name[:25],
+                    subnet_label,
                     color
                 ))
                 
@@ -549,7 +692,7 @@ class SVGGenerator:
                 col = 0
                 
                 svg_parts.append(f'''    <text x="40" y="{vpc_res_y - 5}" fill="#8C4FFF" font-size="11">
-      VPC Resources (no subnet specified)
+      VPC Resources ({len(vpc_res_list)} items)
     </text>
 ''')
                 
@@ -560,7 +703,7 @@ class SVGGenerator:
                     
                     col += 1
                     vpc_res_x += 65
-                    if col >= 6:
+                    if col >= layout['vpc_res_cols']:
                         col = 0
                         vpc_res_x = 40
                         vpc_res_y += 70
@@ -572,11 +715,13 @@ class SVGGenerator:
         external_y = 50
         
         if self.external_resources:
+            external_height = int(math.ceil(len(self.external_resources) / layout['external_cols'])) * 70 + 60
+            
             svg_parts.append(self._create_container_svg(
                 external_x, external_y,
                 layout['external_width'],
-                int(math.ceil(len(self.external_resources) / layout['external_cols'])) * 70 + 60,
-                "External Resources",
+                external_height,
+                f"External Resources ({len(self.external_resources)} items)",
                 self.CONTAINER_COLORS['external'],
                 dashed=True
             ))
@@ -613,66 +758,30 @@ class SVGGenerator:
         drawn_edges = set()
         
         # reader.relationships から接続線を描画
-        for source_id, target_id, rel_type, label in reader.relationships:
-            if source_id in self.node_positions and target_id in self.node_positions:
-                edge_key = (source_id, target_id)
-                if edge_key not in drawn_edges:
-                    color = '#232F3E'
-                    dashed = False
-                    
-                    if rel_type == 'attached_to':
-                        color = '#3B48CC'
-                    elif rel_type == 'targets':
-                        color = '#DD344C'
-                        dashed = True
-                    elif rel_type == 'triggers':
-                        color = '#ED7100'
-                    elif rel_type == 'routes_to':
-                        color = '#E7157B'
-                    
-                    lines.append(self._create_edge_svg(source_id, target_id, color, dashed))
-                    drawn_edges.add(edge_key)
-        
-        # Load Balancer -> Target Group 接続
-        for lb_name, lb_data in reader.load_balancers.items():
-            if lb_name not in self.node_positions:
-                continue
-            
-            # Target Groups への接続
-            for tg_name, tg_data in reader.target_groups.items():
-                if tg_name in self.node_positions:
-                    lb_arn = lb_data.get('LoadBalancerArn', lb_name)
-                    tg_lb_arns = tg_data.get('LoadBalancerArns', [])
-                    
-                    # 接続があるか確認
-                    if any(lb_arn in str(arn) or lb_name in str(arn) for arn in tg_lb_arns):
-                        edge_key = (lb_name, tg_name)
-                        if edge_key not in drawn_edges:
-                            lines.append(self._create_edge_svg(lb_name, tg_name, '#DD344C', True))
-                            drawn_edges.add(edge_key)
-        
-        # NAT Gateway -> Internet (同じサブネット内の最初のリソースへ)
-        # Lambda -> DynamoDB/S3 接続
-        for func_name, func_data in reader.lambda_functions.items():
-            if func_name not in self.node_positions:
-                continue
-            
-            # DynamoDB への接続
-            for table_name in reader.dynamodb_tables.keys():
-                if table_name in self.node_positions:
-                    edge_key = (func_name, table_name)
+        for rel in reader.relationships:
+            if len(rel) >= 3:
+                source_id, target_id, rel_type = rel[0], rel[1], rel[2]
+                
+                if source_id in self.node_positions and target_id in self.node_positions:
+                    edge_key = (source_id, target_id)
                     if edge_key not in drawn_edges:
-                        lines.append(self._create_edge_svg(func_name, table_name, '#ED7100', True))
+                        color = '#232F3E'
+                        dashed = False
+                        
+                        if rel_type == 'attached_to':
+                            color = '#3B48CC'
+                        elif rel_type == 'targets':
+                            color = '#DD344C'
+                            dashed = True
+                        elif rel_type == 'triggers':
+                            color = '#ED7100'
+                        elif rel_type == 'routes_to':
+                            color = '#E7157B'
+                        elif rel_type == 'in_subnet':
+                            color = '#7AA116'
+                            dashed = True
+                        
+                        lines.append(self._create_edge_svg(source_id, target_id, color, dashed))
                         drawn_edges.add(edge_key)
-                        break
-            
-            # S3 への接続
-            for bucket_name in reader.s3_buckets.keys():
-                if bucket_name in self.node_positions:
-                    edge_key = (func_name, bucket_name)
-                    if edge_key not in drawn_edges:
-                        lines.append(self._create_edge_svg(func_name, bucket_name, '#3F8624', True))
-                        drawn_edges.add(edge_key)
-                        break
         
         return ''.join(lines)
