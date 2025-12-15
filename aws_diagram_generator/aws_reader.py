@@ -991,7 +991,7 @@ class AWSResourceReader:
         self._read_target_groups()
     
     def _read_target_groups(self):
-        """Target Group を読み取る"""
+        """Target Group を読み取る（ターゲット情報含む）"""
         print("  Reading Target Groups...")
         
         all_tgs = []
@@ -1016,21 +1016,50 @@ class AWSResourceReader:
             tg_name = tg['TargetGroupName']
             tg_arn = tg['TargetGroupArn']
             vpc_id = tg.get('VpcId')
+            target_type = tg.get('TargetType', 'instance')
             
             lb_arns = tg.get('LoadBalancerArns', [])
+            
+            # ターゲット（EC2、Lambda、IP）を取得
+            targets = []
+            try:
+                target_health = self.elbv2.describe_target_health(TargetGroupArn=tg_arn)
+                for th in target_health.get('TargetHealthDescriptions', []):
+                    target = th.get('Target', {})
+                    target_id = target.get('Id', '')
+                    targets.append({
+                        'Id': target_id,
+                        'Port': target.get('Port'),
+                        'Health': th.get('TargetHealth', {}).get('State', '')
+                    })
+                    
+                    # ターゲットとの関係を追加
+                    if target_type == 'instance' and target_id.startswith('i-'):
+                        # EC2 インスタンス
+                        self.relationships.append((tg_name, target_id, 'targets', 'routes to'))
+                    elif target_type == 'lambda':
+                        # Lambda 関数（ARN から関数名を抽出）
+                        if ':function:' in target_id:
+                            func_name = target_id.split(':function:')[-1].split(':')[0]
+                            self.relationships.append((tg_name, func_name, 'targets', 'routes to'))
+            except Exception as e:
+                pass  # ターゲット取得エラーは無視
             
             self.target_groups[tg_name] = {
                 'Type': 'AWS::ElasticLoadBalancingV2::TargetGroup',
                 'TargetGroupName': tg_name,
                 'TargetGroupArn': tg_arn,
                 'VpcId': vpc_id,
+                'TargetType': target_type,
                 'LoadBalancerArns': lb_arns,
+                'Targets': targets,
                 'Properties': {
                     'Name': tg_name,
                     'Protocol': tg.get('Protocol', ''),
                     'Port': tg.get('Port', 0),
                     'VpcId': vpc_id,
-                    'TargetType': tg.get('TargetType', ''),
+                    'TargetType': target_type,
+                    'Targets': targets
                 }
             }
             
@@ -1081,7 +1110,7 @@ class AWSResourceReader:
         print(f"    Found {len(self.sqs_queues)} SQS Queue(s)")
     
     def read_sns_topics(self):
-        """SNS トピックを読み取る（ページネーション対応）"""
+        """SNS トピックを読み取る（ページネーション対応、サブスクリプション含む）"""
         print("  Reading SNS Topics...")
         
         all_topics = []
@@ -1106,12 +1135,39 @@ class AWSResourceReader:
             topic_arn = topic['TopicArn']
             topic_name = topic_arn.split(':')[-1]
             
+            # サブスクリプションを取得（Lambda トリガーを検出）
+            subscriptions = []
+            lambda_targets = []
+            try:
+                sub_response = self.sns.list_subscriptions_by_topic(TopicArn=topic_arn)
+                for sub in sub_response.get('Subscriptions', []):
+                    protocol = sub.get('Protocol', '')
+                    endpoint = sub.get('Endpoint', '')
+                    subscriptions.append({
+                        'Protocol': protocol,
+                        'Endpoint': endpoint,
+                        'SubscriptionArn': sub.get('SubscriptionArn', '')
+                    })
+                    
+                    # Lambda サブスクリプションの場合、関係を追加
+                    if protocol == 'lambda' and ':function:' in endpoint:
+                        # ARN から関数名を抽出
+                        func_name = endpoint.split(':function:')[-1].split(':')[0]
+                        lambda_targets.append(func_name)
+                        # SNS -> Lambda の関係を追加
+                        self.relationships.append((topic_name, func_name, 'triggers', 'SNS trigger'))
+            except Exception as e:
+                pass  # サブスクリプション取得エラーは無視
+            
             self.sns_topics[topic_name] = {
                 'Type': 'AWS::SNS::Topic',
                 'TopicName': topic_name,
                 'TopicArn': topic_arn,
+                'Subscriptions': subscriptions,
+                'LambdaTargets': lambda_targets,
                 'Properties': {
-                    'TopicName': topic_name
+                    'TopicName': topic_name,
+                    'Subscriptions': subscriptions
                 }
             }
         

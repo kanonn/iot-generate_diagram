@@ -76,8 +76,11 @@ def main():
     
     parser.add_argument(
         '--export-cf',
-        action='store_true',
-        help='CloudFormation 形式でエクスポート'
+        nargs='?',
+        const='',
+        default=None,
+        metavar='DIR',
+        help='CloudFormation 形式でエクスポート（ディレクトリ指定可、省略時は output-dir/cloudformation）'
     )
     
     parser.add_argument(
@@ -147,10 +150,15 @@ def main():
             return 1
         
         # CloudFormation エクスポート
-        if args.export_cf:
+        if args.export_cf is not None:
             from cf_exporter import export_cloudformation
             
-            cf_dir = os.path.join(args.output_dir, 'cloudformation')
+            # エクスポート先を決定
+            if args.export_cf:
+                cf_dir = args.export_cf
+            else:
+                cf_dir = os.path.join(args.output_dir, 'cloudformation')
+            
             export_cloudformation(reader, cf_dir)
     
     # アーキテクチャ図生成

@@ -415,7 +415,7 @@ class CloudFormationImporter:
             for subnet_id in subnet_ids:
                 self.relationships.append((func_name, subnet_id, 'in_subnet', 'deployed'))
             
-            # トリガー
+            # トリガー（Event Source Mapping から）
             for trigger in func_data.get('Triggers', []):
                 arn = trigger.get('EventSourceArn', '')
                 if ':sns:' in arn:
@@ -445,3 +445,29 @@ class CloudFormationImporter:
                     if lb_data.get('LoadBalancerArn') == lb_arn:
                         self.relationships.append((lb_name, tg_name, 'routes_to', 'routes'))
                         break
+            
+            # Target Group -> ターゲット（EC2/Lambda）
+            targets = tg_data.get('Targets', [])
+            target_type = tg_data.get('TargetType', 'instance')
+            for target in targets:
+                target_id = target.get('Id', '')
+                if target_type == 'instance' and target_id.startswith('i-'):
+                    self.relationships.append((tg_name, target_id, 'targets', 'routes to'))
+                elif target_type == 'lambda' and ':function:' in target_id:
+                    func_name = target_id.split(':function:')[-1].split(':')[0]
+                    self.relationships.append((tg_name, func_name, 'targets', 'routes to'))
+        
+        # SNS -> Lambda（サブスクリプションから）
+        for topic_name, topic_data in self.sns_topics.items():
+            lambda_targets = topic_data.get('LambdaTargets', [])
+            for func_name in lambda_targets:
+                self.relationships.append((topic_name, func_name, 'triggers', 'SNS trigger'))
+            
+            # または Subscriptions から
+            subscriptions = topic_data.get('Subscriptions', [])
+            for sub in subscriptions:
+                if sub.get('Protocol') == 'lambda':
+                    endpoint = sub.get('Endpoint', '')
+                    if ':function:' in endpoint:
+                        func_name = endpoint.split(':function:')[-1].split(':')[0]
+                        self.relationships.append((topic_name, func_name, 'triggers', 'SNS trigger'))
