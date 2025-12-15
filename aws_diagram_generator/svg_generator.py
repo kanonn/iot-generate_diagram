@@ -704,7 +704,7 @@ class SVGGenerator:
         return vpc_border + '\n'.join(svg_parts), vpc_width, vpc_height
     
     def _layout_subnet(self, subnet_id, subnet_info, start_x, start_y, icon_size, icon_spacing):
-        """サブネットをレイアウト（固定3行、線が多いものを下に）"""
+        """サブネットをレイアウト（固定2行、左から右へ線多い順）"""
         svg_parts = []
         
         subnet_name = subnet_info['name']
@@ -724,15 +724,15 @@ class SVGGenerator:
 '''
             return border, subnet_width, subnet_height
         
-        # 接続数でソート（少ない順 = 上に配置するため）
-        sorted_resources = sorted(resources, key=lambda r: self._get_connection_count(r[1]))
+        # 接続数でソート（多い順 = 左に配置）
+        sorted_resources = sorted(resources, key=lambda r: self._get_connection_count(r[1]), reverse=True)
         
-        # 固定3行、各行に ceil(総数/3) 個
+        # 固定2行、各行に ceil(総数/2) 個
         total = len(sorted_resources)
-        rows = min(3, total)  # 最大3行
+        rows = min(2, total)  # 最大2行
         cols = math.ceil(total / rows)  # 各行の列数
         
-        # 上から下に配置（線が少ないものを上に、多いものを下に）
+        # 上の行から配置、各行は左から右へ線が多い順
         content_y = start_y + 22
         for i, (icon_type, res_id, name) in enumerate(sorted_resources):
             row = i // cols
@@ -756,7 +756,10 @@ class SVGGenerator:
         return border + '\n'.join(svg_parts), subnet_width, subnet_height
     
     def _layout_target_groups(self, resources, start_x, start_y, icon_size, icon_spacing):
-        """Target Group を関連 LB ごとにグループ化して配置"""
+        """Target Group を関連 LB ごとにグループ化して配置
+        - 同じ NLB に複数 TG がある場合: 3列で改行
+        - 異なる NLB の TG: 横に並べる
+        """
         svg_parts = []
         
         # LB -> Target Group のマッピングを作成
@@ -776,8 +779,8 @@ class SVGGenerator:
                     connected_lbs.append(source)
             
             if connected_lbs:
-                for lb in connected_lbs:
-                    lb_to_tg[lb].append((icon_type, res_id, name))
+                # 最初の LB にのみ関連付け（重複を避ける）
+                lb_to_tg[connected_lbs[0]].append((icon_type, res_id, name))
             else:
                 orphan_tgs.append((icon_type, res_id, name))
         
@@ -789,40 +792,48 @@ class SVGGenerator:
             if not tgs:
                 continue
             
-            # このグループを 3 列で配置
-            cols = min(3, len(tgs))
-            rows = math.ceil(len(tgs) / cols)
-            
+            # ラベル
             svg_parts.append(f'    <text x="{current_x}" y="{start_y + 10}" fill="#666" font-size="8">→ {lb_name[:15]}</text>\n')
             
-            for i, (icon_type, res_id, name) in enumerate(tgs):
-                col = i % cols
-                row = i // cols
-                x = current_x + col * icon_spacing
-                y = start_y + 18 + row * (icon_size + 16)
+            if len(tgs) > 1:
+                # 同じ NLB に複数 TG: 3列で改行
+                cols = min(3, len(tgs))
+                rows = math.ceil(len(tgs) / cols)
+                
+                for i, (icon_type, res_id, name) in enumerate(tgs):
+                    col = i % cols
+                    row = i // cols
+                    x = current_x + col * icon_spacing
+                    y = start_y + 18 + row * (icon_size + 16)
+                    svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name, icon_size))
+                
+                group_width = cols * icon_spacing + 10
+                group_height = rows * (icon_size + 16) + 25
+            else:
+                # 1つの TG: そのまま配置
+                icon_type, res_id, name = tgs[0]
+                x = current_x
+                y = start_y + 18
                 svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name, icon_size))
+                
+                group_width = icon_spacing
+                group_height = icon_size + 16 + 25
             
-            group_width = cols * icon_spacing + 10
-            group_height = rows * (icon_size + 16) + 25
-            
-            current_x += group_width + 20
+            current_x += group_width + 15
             max_height = max(max_height, group_height)
         
-        # 孤立 TG
+        # 孤立 TG（横に並べる）
         if orphan_tgs:
             svg_parts.append(f'    <text x="{current_x}" y="{start_y + 10}" fill="#999" font-size="8">Other TG</text>\n')
-            cols = min(3, len(orphan_tgs))
+            
             for i, (icon_type, res_id, name) in enumerate(orphan_tgs):
-                col = i % cols
-                row = i // cols
-                x = current_x + col * icon_spacing
-                y = start_y + 18 + row * (icon_size + 16)
+                x = current_x + i * icon_spacing
+                y = start_y + 18
                 svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name, icon_size))
             
-            rows = math.ceil(len(orphan_tgs) / cols)
-            group_height = rows * (icon_size + 16) + 25
+            group_height = icon_size + 16 + 25
             max_height = max(max_height, group_height)
-            current_x += cols * icon_spacing + 10
+            current_x += len(orphan_tgs) * icon_spacing + 10
         
         total_width = current_x - start_x
         
