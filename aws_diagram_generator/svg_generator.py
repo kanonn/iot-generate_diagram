@@ -704,7 +704,7 @@ class SVGGenerator:
         return vpc_border + '\n'.join(svg_parts), vpc_width, vpc_height
     
     def _layout_subnet(self, subnet_id, subnet_info, start_x, start_y, icon_size, icon_spacing):
-        """サブネットをレイアウト（横3列、線が多いものを下に）"""
+        """サブネットをレイアウト（固定3行、線が多いものを下に）"""
         svg_parts = []
         
         subnet_name = subnet_info['name']
@@ -724,17 +724,18 @@ class SVGGenerator:
 '''
             return border, subnet_width, subnet_height
         
-        # 接続数でソート（多い順 = 下に配置）
-        sorted_resources = sorted(resources, key=lambda r: self._get_connection_count(r[1]), reverse=True)
+        # 接続数でソート（少ない順 = 上に配置するため）
+        sorted_resources = sorted(resources, key=lambda r: self._get_connection_count(r[1]))
         
-        # 3列でレイアウト
-        cols = min(3, len(sorted_resources))
-        rows = math.ceil(len(sorted_resources) / cols)
+        # 固定3行、各行に ceil(総数/3) 個
+        total = len(sorted_resources)
+        rows = min(3, total)  # 最大3行
+        cols = math.ceil(total / rows)  # 各行の列数
         
-        # 下から上に配置（線が多いものを下に）
+        # 上から下に配置（線が少ないものを上に、多いものを下に）
         content_y = start_y + 22
         for i, (icon_type, res_id, name) in enumerate(sorted_resources):
-            row = rows - 1 - (i // cols)  # 逆順
+            row = i // cols
             col = i % cols
             x = start_x + 10 + col * icon_spacing
             y = content_y + row * (icon_size + 16)
