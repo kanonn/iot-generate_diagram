@@ -331,16 +331,19 @@ class SVGGenerator:
             else:
                 self.external_resources.append(('TargetGroup', tg_name, name, tg_data))
         
-        # Security Groups -> VPC
+        # Security Groups -> VPC（VPC ごとに集約表示）
+        sg_by_vpc = {}
         for sg_id, sg_data in reader.security_groups.items():
             vpc_id = self._get_property(sg_data, 'VpcId')
-            name = self._get_property(sg_data, 'GroupName') or self._get_name(sg_id, sg_data)
-            
-            if vpc_id and vpc_id in reader.vpcs:
-                self.vpc_resources[vpc_id].append(('SecurityGroup', sg_id, name, sg_data))
-            elif reader.vpcs:
-                first_vpc = list(reader.vpcs.keys())[0]
-                self.vpc_resources[first_vpc].append(('SecurityGroup', sg_id, name, sg_data))
+            if vpc_id:
+                if vpc_id not in sg_by_vpc:
+                    sg_by_vpc[vpc_id] = []
+                sg_by_vpc[vpc_id].append(sg_id)
+        
+        for vpc_id, sg_list in sg_by_vpc.items():
+            if vpc_id in reader.vpcs:
+                count = len(sg_list)
+                self.vpc_resources[vpc_id].append(('SecurityGroup', f'__sg_{vpc_id}__', f'Security Groups ({count})', {}))
         
         # Internet Gateways -> VPC
         for igw_id, igw_data in reader.internet_gateways.items():
@@ -353,30 +356,37 @@ class SVGGenerator:
                 first_vpc = list(reader.vpcs.keys())[0]
                 self.vpc_resources[first_vpc].append(('InternetGateway', igw_id, name, igw_data))
         
-        # 外部リソース（全て表示）
-        for bucket_name, bucket_data in reader.s3_buckets.items():
-            name = self._get_name(bucket_name, bucket_data)
-            self.external_resources.append(('S3', bucket_name, name, bucket_data))
+        # 外部リソース（数が多いものは集約表示）
+        # S3 - 集約
+        if reader.s3_buckets:
+            count = len(reader.s3_buckets)
+            first_name = list(reader.s3_buckets.keys())[0]
+            self.external_resources.append(('S3', '__s3_aggregated__', f'S3 Buckets ({count})', {}))
         
+        # DynamoDB - 個別表示
         for table_name, table_data in reader.dynamodb_tables.items():
             name = self._get_name(table_name, table_data)
             self.external_resources.append(('DynamoDB', table_name, name, table_data))
         
+        # SQS - 個別表示
         for queue_name, queue_data in reader.sqs_queues.items():
             name = self._get_name(queue_name, queue_data)
             self.external_resources.append(('SQS', queue_name, name, queue_data))
         
+        # SNS - 個別表示
         for topic_name, topic_data in reader.sns_topics.items():
             name = self._get_name(topic_name, topic_data)
             self.external_resources.append(('SNS', topic_name, name, topic_data))
         
-        for fs_id, fs_data in reader.efs_filesystems.items():
-            name = self._get_name(fs_id, fs_data)
-            self.external_resources.append(('EFS', fs_id, name, fs_data))
+        # EFS - 集約
+        if reader.efs_filesystems:
+            count = len(reader.efs_filesystems)
+            self.external_resources.append(('EFS', '__efs_aggregated__', f'EFS ({count})', {}))
         
-        for role_name, role_data in reader.iam_roles.items():
-            name = self._get_name(role_name, role_data)
-            self.external_resources.append(('IAM', role_name, name, role_data))
+        # IAM Roles - 集約
+        if reader.iam_roles:
+            count = len(reader.iam_roles)
+            self.external_resources.append(('IAM', '__iam_aggregated__', f'IAM Roles ({count})', {}))
         
         # 統計を表示
         total_in_subnet = sum(len(v) for v in self.subnet_resources.values())
@@ -595,8 +605,14 @@ class SVGGenerator:
             refX="9" refY="3.5" orient="auto">
       <polygon points="0 0, 10 3.5, 0 7" fill="#232F3E"/>
     </marker>
-    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+    <!-- 細いグリッド（20px間隔） -->
+    <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
       <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e8e8e8" stroke-width="0.5"/>
+    </pattern>
+    <!-- 太いグリッド（80px間隔 = 20px x 4） -->
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <rect width="80" height="80" fill="url(#smallGrid)"/>
+      <path d="M 80 0 L 0 0 0 80" fill="none" stroke="#d0d0d0" stroke-width="1"/>
     </pattern>
   </defs>
   <rect width="100%" height="100%" fill="url(#grid)"/>

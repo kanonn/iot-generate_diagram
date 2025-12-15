@@ -23,6 +23,7 @@ class AWSResourceReader:
         self.nat_gateways = {}
         self.security_groups = {}
         self.vpc_endpoints = {}
+        self.route_tables = {}
         
         self.ec2_instances = {}
         self.ecs_clusters = {}
@@ -39,12 +40,18 @@ class AWSResourceReader:
         
         self.load_balancers = {}
         self.target_groups = {}
+        self.alb_listeners = {}  # NEW: ALB Listeners
         
         self.sqs_queues = {}
         self.sns_topics = {}
         
         self.iam_roles = {}
         self.log_groups = {}
+        
+        # NEW: 追加リソース
+        self.cloudfront_distributions = {}
+        self.api_gateways = {}
+        self.cloudwatch_event_rules = {}
         
         # 関係マッピング
         self.relationships = []
@@ -66,6 +73,12 @@ class AWSResourceReader:
             self.iam = boto3.client('iam')
             self.logs = boto3.client('logs', region_name=region)
             self.elasticache = boto3.client('elasticache', region_name=region)
+            
+            # NEW: 追加クライアント
+            self.cloudfront = boto3.client('cloudfront')
+            self.apigateway = boto3.client('apigateway', region_name=region)
+            self.apigatewayv2 = boto3.client('apigatewayv2', region_name=region)
+            self.events = boto3.client('events', region_name=region)
             
             print("✓ AWS clients initialized successfully\n")
             
@@ -988,7 +1001,76 @@ class AWSResourceReader:
         
         print(f"    Found {len(self.load_balancers)} Load Balancer(s)")
         
+        self._read_alb_listeners()
         self._read_target_groups()
+    
+    def _read_alb_listeners(self):
+        """ALB/NLB Listeners を読み取る"""
+        print("  Reading ALB/NLB Listeners...")
+        
+        for lb_name, lb_data in self.load_balancers.items():
+            lb_arn = lb_data.get('LoadBalancerArn')
+            if not lb_arn:
+                continue
+            
+            try:
+                response = self.elbv2.describe_listeners(LoadBalancerArn=lb_arn)
+                
+                for listener in response.get('Listeners', []):
+                    listener_arn = listener['ListenerArn']
+                    port = listener.get('Port', 0)
+                    protocol = listener.get('Protocol', '')
+                    
+                    # デフォルトアクション
+                    default_actions = listener.get('DefaultActions', [])
+                    target_group_arns = []
+                    
+                    for action in default_actions:
+                        action_type = action.get('Type', '')
+                        
+                        if action_type == 'forward':
+                            # 単一 Target Group
+                            tg_arn = action.get('TargetGroupArn')
+                            if tg_arn:
+                                target_group_arns.append(tg_arn)
+                            
+                            # 複数 Target Group (weighted)
+                            forward_config = action.get('ForwardConfig', {})
+                            for tg in forward_config.get('TargetGroups', []):
+                                tg_arn = tg.get('TargetGroupArn')
+                                if tg_arn:
+                                    target_group_arns.append(tg_arn)
+                    
+                    listener_id = f"{lb_name}:{port}"
+                    
+                    self.alb_listeners[listener_id] = {
+                        'Type': 'AWS::ElasticLoadBalancingV2::Listener',
+                        'ListenerArn': listener_arn,
+                        'LoadBalancerArn': lb_arn,
+                        'LoadBalancerName': lb_name,
+                        'Port': port,
+                        'Protocol': protocol,
+                        'TargetGroupArns': target_group_arns,
+                        'DefaultActions': default_actions,
+                        'Properties': {
+                            'LoadBalancerArn': lb_arn,
+                            'Port': port,
+                            'Protocol': protocol,
+                            'DefaultActions': default_actions
+                        }
+                    }
+                    
+                    # Listener -> Target Group 関係
+                    for tg_arn in target_group_arns:
+                        # TG ARN から TG 名を取得
+                        for tg_name, tg_data in self.target_groups.items():
+                            if tg_data.get('TargetGroupArn') == tg_arn:
+                                self.relationships.append((lb_name, tg_name, 'listener_to_tg', f':{port} -> {tg_name}'))
+                                break
+            except Exception as e:
+                pass
+        
+        print(f"    Found {len(self.alb_listeners)} Listener(s)")
     
     def _read_target_groups(self):
         """Target Group を読み取る（ターゲット情報含む）"""
@@ -1253,6 +1335,293 @@ class AWSResourceReader:
         
         print(f"    Found {len(self.log_groups)} CloudWatch Log Group(s)")
     
+    # ==================== CDN/API/Events 関連 ====================
+    
+    def read_cloudfront_distributions(self):
+        """CloudFront Distribution を読み取る"""
+        print("  Reading CloudFront Distributions...")
+        
+        all_distributions = []
+        marker = None
+        
+        while True:
+            kwargs = {}
+            if marker:
+                kwargs['Marker'] = marker
+            
+            response = self._safe_call(self.cloudfront.list_distributions, "CloudFront:Distribution", **kwargs)
+            if not response:
+                break
+            
+            dist_list = response.get('DistributionList', {})
+            all_distributions.extend(dist_list.get('Items', []))
+            
+            if dist_list.get('IsTruncated'):
+                marker = dist_list.get('NextMarker')
+            else:
+                break
+        
+        for dist in all_distributions:
+            dist_id = dist['Id']
+            domain_name = dist.get('DomainName', '')
+            
+            # Origins を取得
+            origins = []
+            for origin in dist.get('Origins', {}).get('Items', []):
+                origin_id = origin.get('Id', '')
+                origin_domain = origin.get('DomainName', '')
+                s3_config = origin.get('S3OriginConfig')
+                custom_config = origin.get('CustomOriginConfig')
+                
+                origin_info = {
+                    'Id': origin_id,
+                    'DomainName': origin_domain,
+                    'Type': 'S3' if s3_config else 'Custom'
+                }
+                origins.append(origin_info)
+                
+                # S3 Origin の場合、関係を追加
+                if s3_config and '.s3.' in origin_domain:
+                    bucket_name = origin_domain.split('.s3.')[0]
+                    self.relationships.append((dist_id, bucket_name, 'origin', 'S3 origin'))
+                
+                # ALB/Custom Origin の場合
+                if custom_config:
+                    # ELB ドメインかチェック
+                    if '.elb.' in origin_domain or '.amazonaws.com' in origin_domain:
+                        for lb_name, lb_data in self.load_balancers.items():
+                            # DNSName と比較
+                            lb_dns = lb_data.get('Properties', {}).get('DNSName', '')
+                            if lb_dns and lb_dns in origin_domain:
+                                self.relationships.append((dist_id, lb_name, 'origin', 'ALB origin'))
+                                break
+            
+            self.cloudfront_distributions[dist_id] = {
+                'Type': 'AWS::CloudFront::Distribution',
+                'DistributionId': dist_id,
+                'DomainName': domain_name,
+                'Status': dist.get('Status', ''),
+                'Origins': origins,
+                'Properties': {
+                    'DistributionConfig': {
+                        'Origins': origins,
+                        'DefaultCacheBehavior': dist.get('DefaultCacheBehavior', {}),
+                        'Enabled': dist.get('Enabled', True)
+                    }
+                }
+            }
+        
+        print(f"    Found {len(self.cloudfront_distributions)} CloudFront Distribution(s)")
+    
+    def read_api_gateways(self):
+        """API Gateway (REST & HTTP) を読み取る"""
+        print("  Reading API Gateways...")
+        
+        # REST API (API Gateway v1)
+        try:
+            response = self._safe_call(self.apigateway.get_rest_apis, "APIGateway:RestApi")
+            if response:
+                for api in response.get('items', []):
+                    api_id = api['id']
+                    api_name = api.get('name', api_id)
+                    
+                    # Lambda 統合を取得
+                    lambda_targets = []
+                    try:
+                        resources = self.apigateway.get_resources(restApiId=api_id)
+                        for resource in resources.get('items', []):
+                            for method, method_data in resource.get('resourceMethods', {}).items():
+                                try:
+                                    integration = self.apigateway.get_integration(
+                                        restApiId=api_id,
+                                        resourceId=resource['id'],
+                                        httpMethod=method
+                                    )
+                                    uri = integration.get('uri', '')
+                                    if ':lambda:' in uri and ':function:' in uri:
+                                        func_name = uri.split(':function:')[-1].split('/')[0].split(':')[0]
+                                        lambda_targets.append(func_name)
+                                        self.relationships.append((api_name, func_name, 'invokes', 'API -> Lambda'))
+                                except:
+                                    pass
+                    except:
+                        pass
+                    
+                    self.api_gateways[api_name] = {
+                        'Type': 'AWS::ApiGateway::RestApi',
+                        'ApiId': api_id,
+                        'ApiName': api_name,
+                        'ApiType': 'REST',
+                        'LambdaTargets': list(set(lambda_targets)),
+                        'Properties': {
+                            'Name': api_name,
+                            'Description': api.get('description', ''),
+                            'EndpointConfiguration': api.get('endpointConfiguration', {})
+                        }
+                    }
+        except:
+            pass
+        
+        # HTTP API (API Gateway v2)
+        try:
+            response = self._safe_call(self.apigatewayv2.get_apis, "APIGatewayV2:HttpApi")
+            if response:
+                for api in response.get('Items', []):
+                    api_id = api['ApiId']
+                    api_name = api.get('Name', api_id)
+                    
+                    # 統合を取得
+                    lambda_targets = []
+                    try:
+                        integrations = self.apigatewayv2.get_integrations(ApiId=api_id)
+                        for integ in integrations.get('Items', []):
+                            uri = integ.get('IntegrationUri', '')
+                            if ':lambda:' in uri and ':function:' in uri:
+                                func_name = uri.split(':function:')[-1].split('/')[0].split(':')[0]
+                                lambda_targets.append(func_name)
+                                self.relationships.append((api_name, func_name, 'invokes', 'HTTP API -> Lambda'))
+                    except:
+                        pass
+                    
+                    self.api_gateways[api_name] = {
+                        'Type': 'AWS::ApiGatewayV2::Api',
+                        'ApiId': api_id,
+                        'ApiName': api_name,
+                        'ApiType': 'HTTP',
+                        'LambdaTargets': list(set(lambda_targets)),
+                        'Properties': {
+                            'Name': api_name,
+                            'ProtocolType': api.get('ProtocolType', 'HTTP'),
+                            'Description': api.get('Description', '')
+                        }
+                    }
+        except:
+            pass
+        
+        print(f"    Found {len(self.api_gateways)} API Gateway(s)")
+    
+    def read_cloudwatch_event_rules(self):
+        """CloudWatch Events / EventBridge Rules を読み取る"""
+        print("  Reading CloudWatch Event Rules...")
+        
+        all_rules = []
+        next_token = None
+        
+        while True:
+            kwargs = {}
+            if next_token:
+                kwargs['NextToken'] = next_token
+            
+            response = self._safe_call(self.events.list_rules, "Events:Rule", **kwargs)
+            if not response:
+                break
+            
+            all_rules.extend(response.get('Rules', []))
+            next_token = response.get('NextToken')
+            
+            if not next_token:
+                break
+        
+        for rule in all_rules:
+            rule_name = rule['Name']
+            rule_arn = rule.get('Arn', '')
+            
+            # ターゲットを取得
+            targets = []
+            lambda_targets = []
+            try:
+                target_response = self.events.list_targets_by_rule(Rule=rule_name)
+                for target in target_response.get('Targets', []):
+                    target_arn = target.get('Arn', '')
+                    targets.append({
+                        'Id': target.get('Id', ''),
+                        'Arn': target_arn
+                    })
+                    
+                    # Lambda ターゲットの場合
+                    if ':lambda:' in target_arn and ':function:' in target_arn:
+                        func_name = target_arn.split(':function:')[-1].split(':')[0]
+                        lambda_targets.append(func_name)
+                        self.relationships.append((rule_name, func_name, 'triggers', 'EventBridge trigger'))
+            except:
+                pass
+            
+            self.cloudwatch_event_rules[rule_name] = {
+                'Type': 'AWS::Events::Rule',
+                'RuleName': rule_name,
+                'RuleArn': rule_arn,
+                'State': rule.get('State', ''),
+                'ScheduleExpression': rule.get('ScheduleExpression', ''),
+                'EventPattern': rule.get('EventPattern', ''),
+                'Targets': targets,
+                'LambdaTargets': lambda_targets,
+                'Properties': {
+                    'Name': rule_name,
+                    'State': rule.get('State', ''),
+                    'ScheduleExpression': rule.get('ScheduleExpression', ''),
+                    'Targets': targets
+                }
+            }
+        
+        print(f"    Found {len(self.cloudwatch_event_rules)} CloudWatch Event Rule(s)")
+    
+    def read_route_tables(self):
+        """Route Table を読み取る"""
+        print("  Reading Route Tables...")
+        
+        response = self._safe_call(self.ec2.describe_route_tables, "EC2:RouteTable")
+        if not response:
+            print("    Found 0 Route Table(s)")
+            return
+        
+        for rt in response.get('RouteTables', []):
+            rt_id = rt['RouteTableId']
+            vpc_id = rt.get('VpcId', '')
+            name = self._get_name_tag(rt.get('Tags', []))
+            
+            # ルートを取得
+            routes = []
+            for route in rt.get('Routes', []):
+                route_info = {
+                    'DestinationCidrBlock': route.get('DestinationCidrBlock', ''),
+                    'GatewayId': route.get('GatewayId', ''),
+                    'NatGatewayId': route.get('NatGatewayId', ''),
+                    'VpcEndpointId': route.get('VpcEndpointId', ''),
+                    'State': route.get('State', '')
+                }
+                routes.append(route_info)
+                
+                # IGW への関係
+                if route.get('GatewayId', '').startswith('igw-'):
+                    self.relationships.append((rt_id, route['GatewayId'], 'routes_to', 'route'))
+                
+                # NAT への関係
+                if route.get('NatGatewayId'):
+                    self.relationships.append((rt_id, route['NatGatewayId'], 'routes_to', 'route'))
+            
+            # サブネット関連付け
+            associations = []
+            for assoc in rt.get('Associations', []):
+                subnet_id = assoc.get('SubnetId')
+                if subnet_id:
+                    associations.append(subnet_id)
+                    self.relationships.append((subnet_id, rt_id, 'uses', 'route table'))
+            
+            self.route_tables[rt_id] = {
+                'Type': 'AWS::EC2::RouteTable',
+                'RouteTableId': rt_id,
+                'VpcId': vpc_id,
+                'Name': name,
+                'Routes': routes,
+                'SubnetAssociations': associations,
+                'Properties': {
+                    'VpcId': vpc_id,
+                    'Tags': rt.get('Tags', [])
+                }
+            }
+        
+        print(f"    Found {len(self.route_tables)} Route Table(s)")
+    
     # ==================== 全リソース読み取り ====================
     
     def read_all_resources(self):
@@ -1268,6 +1637,7 @@ class AWSResourceReader:
         self.read_nat_gateways()
         self.read_security_groups()
         self.read_vpc_endpoints()
+        self.read_route_tables()
         
         # Compute
         self.read_ec2_instances()
@@ -1295,17 +1665,24 @@ class AWSResourceReader:
         self.read_iam_roles()
         self.read_cloudwatch_log_groups()
         
+        # NEW: CDN/API/Events
+        self.read_cloudfront_distributions()
+        self.read_api_gateways()
+        self.read_cloudwatch_event_rules()
+        
         # 統計
         total = (
             len(self.vpcs) + len(self.subnets) + len(self.internet_gateways) +
             len(self.nat_gateways) + len(self.security_groups) + len(self.vpc_endpoints) +
+            len(self.route_tables) +
             len(self.ec2_instances) + len(self.ecs_clusters) + len(self.ecs_services) +
             len(self.eks_clusters) + len(self.lambda_functions) +
             len(self.rds_instances) + len(self.dynamodb_tables) + len(self.elasticache_clusters) +
             len(self.s3_buckets) + len(self.efs_filesystems) +
-            len(self.load_balancers) + len(self.target_groups) +
+            len(self.load_balancers) + len(self.target_groups) + len(self.alb_listeners) +
             len(self.sqs_queues) + len(self.sns_topics) +
-            len(self.iam_roles) + len(self.log_groups)
+            len(self.iam_roles) + len(self.log_groups) +
+            len(self.cloudfront_distributions) + len(self.api_gateways) + len(self.cloudwatch_event_rules)
         )
         
         print("\n" + "=" * 80)

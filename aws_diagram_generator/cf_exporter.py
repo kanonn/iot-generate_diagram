@@ -127,6 +127,7 @@ def export_cloudformation(reader, output_dir):
         ('nat-gateway', reader.nat_gateways),
         ('security-group', reader.security_groups),
         ('vpc-endpoint', reader.vpc_endpoints),
+        ('route-table', reader.route_tables),
         ('ec2', reader.ec2_instances),
         ('ecs-cluster', reader.ecs_clusters),
         ('ecs-service', reader.ecs_services),
@@ -138,11 +139,15 @@ def export_cloudformation(reader, output_dir):
         ('s3', reader.s3_buckets),
         ('efs', reader.efs_filesystems),
         ('load-balancer', reader.load_balancers),
+        ('alb-listener', reader.alb_listeners),
         ('target-group', reader.target_groups),
         ('sqs', reader.sqs_queues),
         ('sns', reader.sns_topics),
         ('iam-role', reader.iam_roles),
         ('cloudwatch-log-group', reader.log_groups),
+        ('cloudfront', reader.cloudfront_distributions),
+        ('api-gateway', reader.api_gateways),
+        ('cloudwatch-event-rule', reader.cloudwatch_event_rules),
     ]
     
     total_files = 0
@@ -202,6 +207,7 @@ class CloudFormationImporter:
         self.nat_gateways = {}
         self.security_groups = {}
         self.vpc_endpoints = {}
+        self.route_tables = {}
         
         self.ec2_instances = {}
         self.ecs_clusters = {}
@@ -217,6 +223,7 @@ class CloudFormationImporter:
         self.efs_filesystems = {}
         
         self.load_balancers = {}
+        self.alb_listeners = {}
         self.target_groups = {}
         
         self.sqs_queues = {}
@@ -224,6 +231,11 @@ class CloudFormationImporter:
         
         self.iam_roles = {}
         self.log_groups = {}
+        
+        # NEW: 追加リソース
+        self.cloudfront_distributions = {}
+        self.api_gateways = {}
+        self.cloudwatch_event_rules = {}
         
         self.relationships = []
         self.errors = []
@@ -246,6 +258,7 @@ class CloudFormationImporter:
             'AWS::EC2::NatGateway': self.nat_gateways,
             'AWS::EC2::SecurityGroup': self.security_groups,
             'AWS::EC2::VPCEndpoint': self.vpc_endpoints,
+            'AWS::EC2::RouteTable': self.route_tables,
             'AWS::EC2::Instance': self.ec2_instances,
             'AWS::ECS::Cluster': self.ecs_clusters,
             'AWS::ECS::Service': self.ecs_services,
@@ -257,11 +270,16 @@ class CloudFormationImporter:
             'AWS::S3::Bucket': self.s3_buckets,
             'AWS::EFS::FileSystem': self.efs_filesystems,
             'AWS::ElasticLoadBalancingV2::LoadBalancer': self.load_balancers,
+            'AWS::ElasticLoadBalancingV2::Listener': self.alb_listeners,
             'AWS::ElasticLoadBalancingV2::TargetGroup': self.target_groups,
             'AWS::SQS::Queue': self.sqs_queues,
             'AWS::SNS::Topic': self.sns_topics,
             'AWS::IAM::Role': self.iam_roles,
             'AWS::Logs::LogGroup': self.log_groups,
+            'AWS::CloudFront::Distribution': self.cloudfront_distributions,
+            'AWS::ApiGateway::RestApi': self.api_gateways,
+            'AWS::ApiGatewayV2::Api': self.api_gateways,
+            'AWS::Events::Rule': self.cloudwatch_event_rules,
         }
     
     def import_from_directory(self, input_dir):
