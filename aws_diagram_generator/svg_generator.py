@@ -2,8 +2,9 @@
 """
 SVG 形式のアーキテクチャ図生成モジュール
 - VPC/Subnet 階層構造
-- VPC 内リソースと VPC 外リソースを上下に配置、アイコン列を揃える
-- AWS 公式アイコンスタイル
+- VPC 内リソースと VPC 外リソースを上下に揃える
+- VPC 外リソース: 左側（無関連）、右側（関連あり）
+- アイコンサイズと間隔をグリッドに揃える（40px = 2x2 小格子）
 """
 
 import os
@@ -14,201 +15,203 @@ import math
 class SVGGenerator:
     """SVG 形式のアーキテクチャ図を生成するクラス"""
     
-    # AWS 公式アイコン（より正確なデザイン）
+    # AWS 公式アイコン（2025 スタイル）
     AWS_ICONS = {
-        # Compute - オレンジ
+        # Compute - オレンジ #ED7100
         'EC2': {
             'bg': '#ED7100',
             'paths': [
-                'M4,8 L12,4 L20,8 L20,16 L12,20 L4,16 Z',  # 六角形
-                'M4,12 L20,12',  # 横線
+                'M4,8 L12,4 L20,8 L20,16 L12,20 L4,16 Z',
+                'M4,12 L20,12',
             ]
         },
         'Lambda': {
             'bg': '#ED7100',
             'paths': [
-                'M7,6 L12,18 L17,6',  # λ の上部
-                'M5,18 L9,18',  # λ の下横線
+                'M6,5 L12,19',
+                'M12,19 L18,5',
+                'M4,19 L10,19',
             ]
         },
         'EKS': {
             'bg': '#ED7100', 
             'paths': [
-                'M12,3 L21,12 L12,21 L3,12 Z',  # 外菱形
-                'M12,7 L17,12 L12,17 L7,12 Z',  # 内菱形
+                'M12,3 L21,12 L12,21 L3,12 Z',
+                'M12,7 L17,12 L12,17 L7,12 Z',
             ]
         },
         'ECS': {
             'bg': '#ED7100',
             'paths': [
-                'M4,4 L20,4 L20,20 L4,20 Z',  # 外枠
-                'M8,8 L16,8 L16,16 L8,16 Z',  # 内枠
+                'M3,3 L21,3 L21,21 L3,21 Z',
+                'M7,7 L17,7 L17,17 L7,17 Z',
             ]
         },
         'Fargate': {
             'bg': '#ED7100',
             'paths': [
-                'M12,3 C17,3 21,7 21,12 C21,17 17,21 12,21 C7,21 3,17 3,12 C3,7 7,3 12,3',
+                'M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3',
                 'M12,7 L12,17',
                 'M7,12 L17,12',
             ]
         },
-        # Networking - パープル
+        # Networking - パープル #8C4FFF
         'ALB': {
             'bg': '#8C4FFF',
             'paths': [
-                'M12,4 C12,4 4,8 4,12 C4,16 12,20 12,20 C12,20 20,16 20,12 C20,8 12,4 12,4',  # 楕円形
-                'M8,10 L8,14',  # 左線
-                'M12,8 L12,16',  # 中央線
-                'M16,10 L16,14',  # 右線
+                'M12,3 C6,3 3,7 3,12 C3,17 6,21 12,21 C18,21 21,17 21,12 C21,7 18,3 12,3',
+                'M8,9 L8,15',
+                'M12,7 L12,17',
+                'M16,9 L16,15',
             ]
         },
         'NLB': {
             'bg': '#8C4FFF',
             'paths': [
-                'M6,12 L12,6',  # 左上
-                'M6,12 L12,18',  # 左下
-                'M6,12 L3,12',  # 左
-                'M18,8 L21,8',  # 右上
-                'M18,12 L21,12',  # 右中
-                'M18,16 L21,16',  # 右下
-                'M12,6 L18,8',  # 上から右上
-                'M12,6 L18,12',  # 上から右中
-                'M12,18 L18,12',  # 下から右中
-                'M12,18 L18,16',  # 下から右下
+                'M3,12 L9,6',
+                'M3,12 L9,18',
+                'M9,6 L15,9',
+                'M9,6 L15,12',
+                'M9,18 L15,12',
+                'M9,18 L15,15',
+                'M15,9 L21,9',
+                'M15,12 L21,12',
+                'M15,15 L21,15',
             ]
         },
         'TargetGroup': {
             'bg': '#8C4FFF',
             'paths': [
-                'M12,4 A8,8 0 1,1 12,20 A8,8 0 1,1 12,4',  # 外円
-                'M12,8 A4,4 0 1,1 12,16 A4,4 0 1,1 12,8',  # 内円
-                'M12,11 A1,1 0 1,1 12,13 A1,1 0 1,1 12,11',  # 中心点
+                'M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3',
+                'M12,6 A6,6 0 1,1 12,18 A6,6 0 1,1 12,6',
+                'M12,9 A3,3 0 1,1 12,15 A3,3 0 1,1 12,9',
             ]
         },
         'VPCEndpoint': {
             'bg': '#8C4FFF',
             'paths': [
-                'M3,12 L8,12',
-                'M16,12 L21,12',
-                'M8,6 L16,6 L16,18 L8,18 Z',
-                'M10,10 L14,10',
-                'M10,14 L14,14',
+                'M3,12 L7,12',
+                'M17,12 L21,12',
+                'M7,5 L17,5 L17,19 L7,19 Z',
+                'M10,9 L14,9',
+                'M10,12 L14,12',
+                'M10,15 L14,15',
             ]
         },
         'InternetGateway': {
             'bg': '#8C4FFF',
             'paths': [
-                'M12,3 C17.5,3 22,7.5 22,12 C22,16.5 17.5,21 12,21 C6.5,21 2,16.5 2,12 C2,7.5 6.5,3 12,3',
+                'M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2',
                 'M2,12 L22,12',
-                'M12,3 L12,21',
-                'M5,7 C8,7 10,9 12,12 C14,9 16,7 19,7',
-                'M5,17 C8,17 10,15 12,12 C14,15 16,17 19,17',
+                'M12,2 L12,22',
+                'M4,7 Q12,12 20,7',
+                'M4,17 Q12,12 20,17',
             ]
         },
         'NATGateway': {
             'bg': '#8C4FFF',
             'paths': [
-                'M4,7 L20,7 L20,17 L4,17 Z',
-                'M12,10 L12,17',
-                'M8,13 L12,10 L16,13',
+                'M4,6 L20,6 L20,18 L4,18 Z',
+                'M12,9 L12,18',
+                'M8,13 L12,9 L16,13',
             ]
         },
         'CloudFront': {
             'bg': '#8C4FFF',
             'paths': [
-                'M12,3 C17.5,3 22,7.5 22,12 C22,16.5 17.5,21 12,21 C6.5,21 2,16.5 2,12 C2,7.5 6.5,3 12,3',
+                'M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2',
                 'M2,12 L22,12',
-                'M12,3 Q7,12 12,21',
-                'M12,3 Q17,12 12,21',
+                'M12,2 Q6,12 12,22',
+                'M12,2 Q18,12 12,22',
             ]
         },
-        # Database - ブルー
+        # Database - ブルー #3B48CC
         'RDS': {
             'bg': '#3B48CC',
             'paths': [
-                'M5,6 C5,4 8,3 12,3 C16,3 19,4 19,6 L19,18 C19,20 16,21 12,21 C8,21 5,20 5,18 Z',
-                'M5,6 C5,8 8,9 12,9 C16,9 19,8 19,6',
+                'M5,5 C5,3 8,2 12,2 C16,2 19,3 19,5 L19,19 C19,21 16,22 12,22 C8,22 5,21 5,19 Z',
+                'M5,5 C5,7 8,8 12,8 C16,8 19,7 19,5',
                 'M5,12 C5,14 8,15 12,15 C16,15 19,14 19,12',
             ]
         },
         'DynamoDB': {
             'bg': '#3B48CC',
             'paths': [
-                'M12,3 L20,7 L20,17 L12,21 L4,17 L4,7 Z',
-                'M4,12 L20,12',
-                'M12,3 L12,21',
+                'M12,2 L21,7 L21,17 L12,22 L3,17 L3,7 Z',
+                'M3,12 L21,12',
+                'M12,2 L12,22',
             ]
         },
         'ElastiCache': {
             'bg': '#3B48CC',
             'paths': [
-                'M12,3 C17.5,3 22,7.5 22,12 C22,16.5 17.5,21 12,21 C6.5,21 2,16.5 2,12 C2,7.5 6.5,3 12,3',
+                'M12,2 A10,10 0 1,1 12,22 A10,10 0 1,1 12,2',
                 'M6,12 L10,8 L10,16 Z',
                 'M18,12 L14,8 L14,16 Z',
             ]
         },
-        # Storage - グリーン
+        # Storage - グリーン #3F8624
         'S3': {
             'bg': '#3F8624',
             'paths': [
-                'M5,5 C5,4 8,3 12,3 C16,3 19,4 19,5 L19,19 C19,20 16,21 12,21 C8,21 5,20 5,19 Z',
-                'M5,5 C5,6 8,7 12,7 C16,7 19,6 19,5',
-                'M5,10 C5,11 8,12 12,12 C16,12 19,11 19,10',
-                'M5,15 C5,16 8,17 12,17 C16,17 19,16 19,15',
+                'M5,4 C5,3 8,2 12,2 C16,2 19,3 19,4 L19,20 C19,21 16,22 12,22 C8,22 5,21 5,20 Z',
+                'M5,4 C5,5 8,6 12,6 C16,6 19,5 19,4',
+                'M5,9 C5,10 8,11 12,11 C16,11 19,10 19,9',
+                'M5,14 C5,15 8,16 12,16 C16,16 19,15 19,14',
             ]
         },
         'EFS': {
             'bg': '#3F8624',
             'paths': [
-                'M3,5 L21,5 L21,19 L3,19 Z',
-                'M3,9 L21,9',
-                'M3,13 L21,13',
-                'M9,5 L9,19',
-                'M15,5 L15,19',
+                'M3,4 L21,4 L21,20 L3,20 Z',
+                'M3,8 L21,8',
+                'M3,12 L21,12',
+                'M3,16 L21,16',
+                'M9,4 L9,20',
+                'M15,4 L15,20',
             ]
         },
-        # Integration - ピンク
+        # Integration - ピンク #E7157B
         'SNS': {
             'bg': '#E7157B',
             'paths': [
-                'M12,3 L21,12 L12,21 L3,12 Z',
-                'M12,7 L12,17',
-                'M7,12 L17,12',
+                'M12,2 L22,12 L12,22 L2,12 Z',
+                'M12,6 L12,18',
+                'M6,12 L18,12',
             ]
         },
         'SQS': {
             'bg': '#E7157B',
             'paths': [
-                'M4,6 L20,6 L20,18 L4,18 Z',
-                'M7,10 L17,10',
-                'M7,14 L17,14',
-                'M14,10 L17,10 L17,14',
+                'M3,5 L21,5 L21,19 L3,19 Z',
+                'M6,9 L18,9',
+                'M6,13 L18,13',
+                'M15,9 L18,9 L18,13',
             ]
         },
         'APIGateway': {
             'bg': '#E7157B',
             'paths': [
-                'M3,12 L9,6 L9,18 Z',  # 左三角
-                'M21,12 L15,6 L15,18 Z',  # 右三角
-                'M9,12 L15,12',  # 中央線
+                'M2,12 L9,5 L9,19 Z',
+                'M22,12 L15,5 L15,19 Z',
+                'M9,12 L15,12',
             ]
         },
         'EventBridge': {
             'bg': '#E7157B',
             'paths': [
-                'M4,6 L20,6 L20,18 L4,18 Z',
-                'M12,6 L12,18',
-                'M4,12 L20,12',
-                'M8,9 A3,3 0 1,1 8,15 A3,3 0 1,1 8,9',
-                'M16,9 A3,3 0 1,1 16,15 A3,3 0 1,1 16,9',
+                'M3,5 L21,5 L21,19 L3,19 Z',
+                'M12,5 L12,19',
+                'M3,12 L21,12',
+                'M7,8 A3,3 0 1,1 7,16 A3,3 0 1,1 7,8',
+                'M17,8 A3,3 0 1,1 17,16 A3,3 0 1,1 17,8',
             ]
         },
-        # Security - レッド
+        # Security - レッド #DD344C
         'SecurityGroup': {
             'bg': '#DD344C',
             'paths': [
-                'M12,2 L20,6 L20,14 L12,22 L4,14 L4,6 Z',  # 盾形
+                'M12,2 L21,6 L21,14 L12,22 L3,14 L3,6 Z',
                 'M12,6 L12,14',
                 'M8,10 L16,10',
             ]
@@ -216,11 +219,16 @@ class SVGGenerator:
         'IAM': {
             'bg': '#DD344C',
             'paths': [
-                'M12,3 C14,3 16,5 16,7 C16,9 14,11 12,11 C10,11 8,9 8,7 C8,5 10,3 12,3',  # 頭
-                'M6,21 L6,16 C6,14 9,12 12,12 C15,12 18,14 18,16 L18,21',  # 体
+                'M12,3 C14,3 16,5 16,7 C16,9 14,11 12,11 C10,11 8,9 8,7 C8,5 10,3 12,3',
+                'M5,21 L5,17 C5,14 8,12 12,12 C16,12 19,14 19,17 L19,21',
             ]
         },
     }
+    
+    # グリッド設定
+    GRID_SIZE = 20  # 小格子サイズ
+    ICON_SIZE = 40  # アイコンサイズ（2x2 小格子）
+    ICON_SPACING = 60  # アイコン間隔（3 小格子）
     
     def __init__(self, reader):
         self.reader = reader
@@ -270,18 +278,7 @@ class SVGGenerator:
         total = sum(len(v) for v in self.relationships_map.values())
         print(f"  Built {total} relationships")
     
-    def _get_external_connections(self, res_id):
-        count = 0
-        for target, _ in self.relationships_map.get(res_id, []):
-            if target in self.external_resource_ids:
-                count += 1
-        for source, _ in self.reverse_relationships.get(res_id, []):
-            if source in self.external_resource_ids:
-                count += 1
-        return count
-    
     def _get_connected_external_resources(self, vpc_res_id, external_resources):
-        """VPC 内リソースに接続している外部リソースを取得"""
         connected = []
         for ext_type, ext_id, ext_name in external_resources:
             is_connected = False
@@ -298,24 +295,37 @@ class SVGGenerator:
                 connected.append((ext_type, ext_id, ext_name))
         return connected
     
-    def _create_icon_svg(self, icon_type, x, y, res_id, label='', size=36):
+    def _are_external_resources_related(self, ext_id1, ext_id2):
+        """2つの外部リソースが関連しているか確認"""
+        for target, _ in self.relationships_map.get(ext_id1, []):
+            if target == ext_id2:
+                return True
+        for source, _ in self.reverse_relationships.get(ext_id1, []):
+            if source == ext_id2:
+                return True
+        return False
+    
+    def _create_icon_svg(self, icon_type, x, y, res_id, label='', size=None):
+        if size is None:
+            size = self.ICON_SIZE
+        
         icon_def = self.AWS_ICONS.get(icon_type, {'bg': '#232F3E', 'paths': ['M4,4 L20,4 L20,20 L4,20 Z']})
         bg_color = icon_def['bg']
         paths = icon_def['paths']
-        short_label = str(label)[:16] if label else ''
+        short_label = str(label)[:14] if label else ''
         
         self.node_positions[res_id] = (x + size/2, y + size/2, size, size)
         scale = size / 24
         
         path_elements = ''
         for p in paths:
-            path_elements += f'        <path d="{p}" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>\n'
+            path_elements += f'        <path d="{p}" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>\n'
         
         return f'''    <g id="{res_id}" transform="translate({x},{y})">
       <rect x="0" y="0" width="{size}" height="{size}" rx="4" fill="{bg_color}"/>
       <g transform="scale({scale:.3f})">
 {path_elements}      </g>
-      <text x="{size/2}" y="{size + 11}" text-anchor="middle" fill="#333" font-size="8">{short_label}</text>
+      <text x="{size/2}" y="{size + 12}" text-anchor="middle" fill="#333" font-size="9">{short_label}</text>
     </g>
 '''
     
@@ -511,25 +521,25 @@ class SVGGenerator:
             external.append(('S3', '__s3__', f'S3 ({len(reader.s3_buckets)})'))
         
         for name, data in reader.target_groups.items():
-            external.append(('TargetGroup', name, self._get_name(name, data)[:16]))
+            external.append(('TargetGroup', name, self._get_name(name, data)[:14]))
         
         for name, data in reader.dynamodb_tables.items():
-            external.append(('DynamoDB', name, self._get_name(name, data)[:16]))
+            external.append(('DynamoDB', name, self._get_name(name, data)[:14]))
         
         for name, data in reader.sns_topics.items():
-            external.append(('SNS', name, self._get_name(name, data)[:16]))
+            external.append(('SNS', name, self._get_name(name, data)[:14]))
         
         for name, data in reader.sqs_queues.items():
-            external.append(('SQS', name, self._get_name(name, data)[:16]))
+            external.append(('SQS', name, self._get_name(name, data)[:14]))
         
         for name, data in reader.cloudfront_distributions.items():
             external.append(('CloudFront', name, f'CF-{name[:10]}'))
         
         for name, data in reader.api_gateways.items():
-            external.append(('APIGateway', name, self._get_name(name, data)[:16]))
+            external.append(('APIGateway', name, self._get_name(name, data)[:14]))
         
         for name, data in reader.cloudwatch_event_rules.items():
-            external.append(('EventBridge', name, self._get_name(name, data)[:16]))
+            external.append(('EventBridge', name, self._get_name(name, data)[:14]))
         
         if reader.iam_roles:
             external.append(('IAM', '__iam__', f'IAM ({len(reader.iam_roles)})'))
@@ -538,7 +548,7 @@ class SVGGenerator:
             external.append(('EFS', '__efs__', f'EFS ({len(reader.efs_filesystems)})'))
         
         for name, data in reader.ecs_clusters.items():
-            external.append(('ECS', name, self._get_name(name, data)[:16]))
+            external.append(('ECS', name, self._get_name(name, data)[:14]))
         
         vpc_lambda_names = set()
         for func_name, data in reader.lambda_functions.items():
@@ -549,31 +559,30 @@ class SVGGenerator:
         
         for func_name, data in reader.lambda_functions.items():
             if func_name not in vpc_lambda_names:
-                external.append(('Lambda', func_name, self._get_name(func_name, data)[:16]))
+                external.append(('Lambda', func_name, self._get_name(func_name, data)[:14]))
         
         return external
     
     def _layout_all(self, vpc_data, external_resources):
         svg_parts = []
         
-        icon_size = 36
-        icon_spacing = 50
-        
         current_y = 60
         max_width = 400
         
         for vpc_id, vpc_info in vpc_data.items():
             vpc_svg, vpc_width, vpc_height = self._layout_vpc_with_external(
-                vpc_id, vpc_info, external_resources, 20, current_y, icon_size, icon_spacing
+                vpc_id, vpc_info, external_resources, 20, current_y
             )
             svg_parts.append(vpc_svg)
-            current_y += vpc_height + 25
+            current_y += vpc_height + 40
             max_width = max(max_width, vpc_width + 40)
         
-        orphan_external = self._get_orphan_external(external_resources)
-        if orphan_external:
-            ext_svg, ext_width, ext_height = self._layout_orphan_external(
-                orphan_external, 20, current_y, icon_size, icon_spacing
+        # VPC 外リソース（左: 無関連、右: 関連あり）
+        orphan_external, related_external = self._split_external_resources(external_resources)
+        
+        if orphan_external or related_external:
+            ext_svg, ext_width, ext_height = self._layout_split_external(
+                orphan_external, related_external, 20, current_y
             )
             svg_parts.append(ext_svg)
             current_y += ext_height + 20
@@ -581,29 +590,146 @@ class SVGGenerator:
         
         return '\n'.join(svg_parts), max_width, current_y
     
-    def _get_orphan_external(self, external_resources):
-        orphans = []
-        used_external = set()
-        
+    def _split_external_resources(self, external_resources):
+        """外部リソースを無関連と関連ありに分割"""
+        # VPC 内リソースとの関連をチェック
+        used_by_vpc = set()
         for vpc_id, vpc_info in self._organize_by_vpc().items():
             for subnet_info in vpc_info.get('subnets', {}).values():
                 for icon_type, res_id, name in subnet_info.get('resources', []):
                     connected = self._get_connected_external_resources(res_id, external_resources)
                     for _, ext_id, _ in connected:
-                        used_external.add(ext_id)
+                        used_by_vpc.add(ext_id)
+        
+        # 外部リソース同士の関連をチェック
+        related_pairs = set()
+        ext_ids = [ext_id for _, ext_id, _ in external_resources]
+        for i, ext_id1 in enumerate(ext_ids):
+            for ext_id2 in ext_ids[i+1:]:
+                if self._are_external_resources_related(ext_id1, ext_id2):
+                    related_pairs.add(ext_id1)
+                    related_pairs.add(ext_id2)
+        
+        orphan = []
+        related = []
         
         for icon_type, res_id, name in external_resources:
-            if res_id not in used_external:
-                orphans.append((icon_type, res_id, name))
-        return orphans
+            if res_id in used_by_vpc:
+                continue  # VPC 内リソースと関連あり（既に表示済み）
+            elif res_id in related_pairs:
+                related.append((icon_type, res_id, name))
+            else:
+                orphan.append((icon_type, res_id, name))
+        
+        return orphan, related
     
-    def _layout_vpc_with_external(self, vpc_id, vpc_info, external_resources, start_x, start_y, icon_size, icon_spacing):
+    def _layout_split_external(self, orphan_external, related_external, start_x, start_y):
+        """外部リソースを左右に分けて配置"""
+        svg_parts = []
+        
+        spacing = self.ICON_SPACING
+        icon_size = self.ICON_SIZE
+        
+        # タイトル
+        svg_parts.append(f'    <text x="{start_x + 10}" y="{start_y + 15}" fill="#666" font-size="11">External Resources</text>\n')
+        
+        content_y = start_y + 30
+        left_width = 0
+        left_height = 0
+        right_width = 0
+        right_height = 0
+        
+        # 左側: 無関連リソース（3:2 矩形配置）
+        if orphan_external:
+            total = len(orphan_external)
+            # 3:2 比率を目指す
+            cols = max(1, int(math.sqrt(total * 1.5)))
+            rows = math.ceil(total / cols)
+            
+            for i, (icon_type, res_id, name) in enumerate(orphan_external):
+                col = i % cols
+                row = i // cols
+                x = start_x + 10 + col * spacing
+                y = content_y + row * (icon_size + 20)
+                svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name))
+            
+            left_width = cols * spacing + 20
+            left_height = rows * (icon_size + 20)
+        
+        # 右側: 関連ありリソース
+        if related_external:
+            right_x = start_x + left_width + 60  # 区切り線の位置
+            
+            # 関連グループを見つける
+            groups = self._find_related_groups(related_external)
+            
+            group_x = right_x
+            max_group_height = 0
+            
+            for group in groups:
+                # 各グループを縦に配置
+                for i, (icon_type, res_id, name) in enumerate(group):
+                    x = group_x
+                    y = content_y + i * (icon_size + 20)
+                    svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name))
+                
+                group_height = len(group) * (icon_size + 20)
+                max_group_height = max(max_group_height, group_height)
+                group_x += spacing
+            
+            right_width = group_x - right_x + 20
+            right_height = max_group_height
+            
+            # 区切り線
+            if orphan_external:
+                line_x = start_x + left_width + 30
+                svg_parts.append(f'    <line x1="{line_x}" y1="{content_y - 10}" x2="{line_x}" y2="{content_y + max(left_height, right_height)}" stroke="#ccc" stroke-width="1" stroke-dasharray="4,4"/>\n')
+        
+        total_width = left_width + right_width + 80
+        total_height = max(left_height, right_height) + 40
+        
+        # 枠
+        border = f'    <rect x="{start_x}" y="{start_y}" width="{total_width}" height="{total_height}" fill="#fafafa" stroke="#ccc" stroke-width="1" stroke-dasharray="5,3" rx="8"/>\n'
+        
+        return border + '\n'.join(svg_parts), total_width, total_height
+    
+    def _find_related_groups(self, resources):
+        """関連するリソースをグループ化"""
+        if not resources:
+            return []
+        
+        groups = []
+        used = set()
+        
+        for icon_type, res_id, name in resources:
+            if res_id in used:
+                continue
+            
+            group = [(icon_type, res_id, name)]
+            used.add(res_id)
+            
+            # 関連するリソースを探す
+            for icon_type2, res_id2, name2 in resources:
+                if res_id2 in used:
+                    continue
+                if self._are_external_resources_related(res_id, res_id2):
+                    group.append((icon_type2, res_id2, name2))
+                    used.add(res_id2)
+            
+            groups.append(group)
+        
+        return groups
+    
+    def _layout_vpc_with_external(self, vpc_id, vpc_info, external_resources, start_x, start_y):
         svg_parts = []
         
         vpc_name = vpc_info['name']
         cidr = vpc_info['cidr']
         subnets = vpc_info['subnets']
         vpc_level_resources = vpc_info.get('vpc_level_resources', [])
+        
+        spacing = self.ICON_SPACING
+        icon_size = self.ICON_SIZE
         
         current_y = start_y + 28
         max_content_width = 150
@@ -612,7 +738,7 @@ class SVGGenerator:
         if subnet_items:
             for subnet_id, subnet_info in subnet_items:
                 s_svg, s_width, s_height = self._layout_subnet_aligned(
-                    subnet_id, subnet_info, external_resources, start_x + 15, current_y, icon_size, icon_spacing
+                    subnet_id, subnet_info, external_resources, start_x + 15, current_y
                 )
                 svg_parts.append(s_svg)
                 max_content_width = max(max_content_width, s_width + 30)
@@ -620,7 +746,7 @@ class SVGGenerator:
         
         if vpc_level_resources:
             res_svg, res_width, res_height = self._layout_resource_row(
-                vpc_level_resources, start_x + 15, current_y, 12, icon_size, icon_spacing
+                vpc_level_resources, start_x + 15, current_y, 12
             )
             svg_parts.append(res_svg)
             max_content_width = max(max_content_width, res_width + 30)
@@ -636,17 +762,19 @@ class SVGGenerator:
         
         return vpc_border + '\n'.join(svg_parts), vpc_width, vpc_height
     
-    def _layout_subnet_aligned(self, subnet_id, subnet_info, external_resources, start_x, start_y, icon_size, icon_spacing):
-        """サブネットをレイアウト（VPC 内外リソースを上下に揃える）"""
+    def _layout_subnet_aligned(self, subnet_id, subnet_info, external_resources, start_x, start_y):
         svg_parts = []
         
         subnet_name = subnet_info['name']
         az = subnet_info['az']
         resources = subnet_info.get('resources', [])
         
+        spacing = self.ICON_SPACING
+        icon_size = self.ICON_SIZE
+        
         if not resources:
             subnet_width = 80
-            subnet_height = 50
+            subnet_height = 60
             label = f"{subnet_name[:12]}"
             if az:
                 label += f" ({az})"
@@ -656,40 +784,35 @@ class SVGGenerator:
 '''
             return border, subnet_width, subnet_height
         
-        # 各 VPC 内リソースの関連外部リソースを取得し、数でソート
+        # 各 VPC 内リソースの関連外部リソースを取得
         res_with_external = []
         for icon_type, res_id, name in resources:
             connected_ext = self._get_connected_external_resources(res_id, external_resources)
             res_with_external.append((icon_type, res_id, name, connected_ext))
         
-        # 関連外部リソース数で降順ソート（多いものを左に）
         res_with_external.sort(key=lambda x: len(x[3]), reverse=True)
         
-        # 列数を計算（各 VPC 内リソースは max(1, ceil(外部リソース数/3)) 列を占有）
-        col_positions = []  # 各 VPC 内リソースの開始列
+        # 列位置を計算
+        col_positions = []
         current_col = 0
         for icon_type, res_id, name, connected_ext in res_with_external:
             col_positions.append(current_col)
             ext_count = len(connected_ext)
-            if ext_count <= 1:
-                cols_needed = 1
-            else:
-                cols_needed = min(3, ext_count)  # 最大3列
+            cols_needed = max(1, min(3, ext_count))
             current_col += cols_needed
         
         total_cols = current_col
         
-        # VPC 内リソースを配置（1行目）
-        content_y = start_y + 22
+        # VPC 内リソースを配置
+        content_y = start_y + 24
         for i, (icon_type, res_id, name, connected_ext) in enumerate(res_with_external):
             col = col_positions[i]
-            x = start_x + 10 + col * icon_spacing
-            svg_parts.append(self._create_icon_svg(icon_type, x, y=content_y, res_id=res_id, label=name, size=icon_size))
+            x = start_x + 10 + col * spacing
+            svg_parts.append(self._create_icon_svg(icon_type, x, content_y, res_id, name))
         
-        subnet_internal_height = icon_size + 16 + 28
-        subnet_width = max(total_cols * icon_spacing + 25, 80)
+        subnet_internal_height = icon_size + 20 + 28
+        subnet_width = max(total_cols * spacing + 25, 80)
         
-        # サブネット枠
         label = f"{subnet_name[:12]}"
         if az:
             label += f" ({az})"
@@ -700,7 +823,7 @@ class SVGGenerator:
 '''
         svg_parts.insert(0, border)
         
-        # 外部リソースを配置（サブネット下、上下揃え）
+        # 外部リソースを配置
         ext_y = start_y + subnet_internal_height + 10
         max_ext_height = 0
         
@@ -709,27 +832,28 @@ class SVGGenerator:
                 continue
             
             col_start = col_positions[i]
-            
-            # この VPC 内リソースの外部リソースを 3 列で配置
             cols = min(3, len(connected_ext))
             rows = math.ceil(len(connected_ext) / cols)
             
             for j, (ext_type, ext_id, ext_name) in enumerate(connected_ext):
                 ext_col = j % cols
                 ext_row = j // cols
-                x = start_x + 10 + (col_start + ext_col) * icon_spacing
-                y = ext_y + ext_row * (icon_size + 16)
-                svg_parts.append(self._create_icon_svg(ext_type, x, y, ext_id, ext_name, icon_size))
+                x = start_x + 10 + (col_start + ext_col) * spacing
+                y = ext_y + ext_row * (icon_size + 20)
+                svg_parts.append(self._create_icon_svg(ext_type, x, y, ext_id, ext_name))
             
-            ext_height = rows * (icon_size + 16)
+            ext_height = rows * (icon_size + 20)
             max_ext_height = max(max_ext_height, ext_height)
         
         total_height = subnet_internal_height + 10 + max_ext_height
         
         return '\n'.join(svg_parts), subnet_width, total_height
     
-    def _layout_resource_row(self, resources, start_x, start_y, max_cols, icon_size, icon_spacing):
+    def _layout_resource_row(self, resources, start_x, start_y, max_cols):
         svg_parts = []
+        
+        spacing = self.ICON_SPACING
+        icon_size = self.ICON_SIZE
         
         if not resources:
             return '', 0, 0
@@ -740,40 +864,14 @@ class SVGGenerator:
         for i, (icon_type, res_id, name) in enumerate(resources):
             col = i % cols
             row = i // cols
-            x = start_x + col * icon_spacing
-            y = start_y + row * (icon_size + 16)
-            svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name, icon_size))
+            x = start_x + col * spacing
+            y = start_y + row * (icon_size + 20)
+            svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name))
         
-        width = cols * icon_spacing
-        height = rows * (icon_size + 16) + 5
+        width = cols * spacing
+        height = rows * (icon_size + 20) + 5
         
         return '\n'.join(svg_parts), width, height
-    
-    def _layout_orphan_external(self, resources, start_x, start_y, icon_size, icon_spacing):
-        svg_parts = []
-        
-        if not resources:
-            return '', 100, 30
-        
-        cols = min(10, len(resources))
-        rows = math.ceil(len(resources) / cols)
-        
-        svg_parts.append(f'    <text x="{start_x + 10}" y="{start_y + 15}" fill="#666" font-size="11">Unconnected Resources ({len(resources)})</text>\n')
-        
-        content_y = start_y + 25
-        for i, (icon_type, res_id, name) in enumerate(resources):
-            col = i % cols
-            row = i // cols
-            x = start_x + 10 + col * icon_spacing
-            y = content_y + row * (icon_size + 16)
-            svg_parts.append(self._create_icon_svg(icon_type, x, y, res_id, name, icon_size))
-        
-        width = cols * icon_spacing + 30
-        height = rows * (icon_size + 16) + 35
-        
-        border = f'    <rect x="{start_x}" y="{start_y}" width="{width}" height="{height}" fill="#fafafa" stroke="#ccc" stroke-width="1" stroke-dasharray="5,3" rx="8"/>\n'
-        
-        return border + '\n'.join(svg_parts), width, height
     
     def _build_svg_document(self, content_svg, width, height):
         edge_svg = '\n  <!-- Connections -->\n'
@@ -785,6 +883,8 @@ class SVGGenerator:
                     drawn.add((source, target))
         
         rel_count = sum(len(v) for v in self.relationships_map.values())
+        grid = self.GRID_SIZE
+        grid2 = grid * 2
         
         return f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" 
@@ -796,18 +896,18 @@ class SVGGenerator:
     <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
       <polygon points="0 0, 8 3, 0 6" fill="#222"/>
     </marker>
-    <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" stroke-width="0.5"/>
+    <pattern id="smallGrid" width="{grid}" height="{grid}" patternUnits="userSpaceOnUse">
+      <path d="M {grid} 0 L 0 0 0 {grid}" fill="none" stroke="#f0f0f0" stroke-width="0.5"/>
     </pattern>
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-      <rect width="40" height="40" fill="url(#smallGrid)"/>
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e0e0e0" stroke-width="1"/>
+    <pattern id="grid" width="{grid2}" height="{grid2}" patternUnits="userSpaceOnUse">
+      <rect width="{grid2}" height="{grid2}" fill="url(#smallGrid)"/>
+      <path d="M {grid2} 0 L 0 0 0 {grid2}" fill="none" stroke="#e0e0e0" stroke-width="1"/>
     </pattern>
   </defs>
   <rect width="100%" height="100%" fill="url(#grid)"/>
   
-  <text x="15" y="25" fill="#232F3E" font-size="14" font-weight="bold">AWS Architecture Diagram</text>
-  <text x="15" y="42" fill="#666" font-size="10">VPCs: {len(self.reader.vpcs)} | Subnets: {len(self.reader.subnets)} | Relationships: {rel_count}</text>
+  <text x="20" y="25" fill="#232F3E" font-size="14" font-weight="bold">AWS Architecture Diagram</text>
+  <text x="20" y="42" fill="#666" font-size="10">VPCs: {len(self.reader.vpcs)} | Subnets: {len(self.reader.subnets)} | Relationships: {rel_count}</text>
 
 {content_svg}
 {edge_svg}
