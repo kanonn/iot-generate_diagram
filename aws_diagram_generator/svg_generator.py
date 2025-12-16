@@ -641,8 +641,8 @@ class SVGGenerator:
         total_width = left_width + right_width + 80
         total_height = max(left_height, right_height) + 40
         
-        # 枠
-        border = f'    <rect x="{start_x}" y="{start_y}" width="{total_width}" height="{total_height}" fill="#fafafa" stroke="#ccc" stroke-width="1" stroke-dasharray="5,3" rx="8"/>\n'
+        # 枠（背景なし）
+        border = f'    <rect x="{start_x}" y="{start_y}" width="{total_width}" height="{total_height}" fill="none" stroke="#ccc" stroke-width="1" stroke-dasharray="5,3" rx="8"/>\n'
         
         return border + '\n'.join(svg_parts), total_width, total_height
     
@@ -732,7 +732,7 @@ class SVGGenerator:
             if az:
                 label += f" ({az})"
             border = f'''    <rect x="{start_x}" y="{start_y}" width="{subnet_width}" height="{subnet_height}" 
-          fill="#f8fff8" stroke="#7AA116" stroke-width="1.5" rx="5"/>
+          fill="none" stroke="#7AA116" stroke-width="1.5" rx="5"/>
     <text x="{start_x + 8}" y="{start_y + 14}" fill="#7AA116" font-size="9">{label}</text>
 '''
             return border, subnet_width, subnet_height
@@ -772,7 +772,7 @@ class SVGGenerator:
             label += f" ({az})"
         
         border = f'''    <rect x="{start_x}" y="{start_y}" width="{subnet_width}" height="{subnet_internal_height}" 
-          fill="#f8fff8" stroke="#7AA116" stroke-width="1.5" rx="5"/>
+          fill="none" stroke="#7AA116" stroke-width="1.5" rx="5"/>
     <text x="{start_x + 8}" y="{start_y + 14}" fill="#7AA116" font-size="9">{label}</text>
 '''
         svg_parts.insert(0, border)
@@ -851,11 +851,11 @@ class SVGGenerator:
       <polygon points="0 0, 8 3, 0 6" fill="#222"/>
     </marker>
     <pattern id="smallGrid" width="{grid}" height="{grid}" patternUnits="userSpaceOnUse">
-      <path d="M {grid} 0 L 0 0 0 {grid}" fill="none" stroke="#f0f0f0" stroke-width="0.5"/>
+      <path d="M {grid} 0 L 0 0 0 {grid}" fill="none" stroke="#ddd" stroke-width="0.5"/>
     </pattern>
     <pattern id="grid" width="{grid2}" height="{grid2}" patternUnits="userSpaceOnUse">
       <rect width="{grid2}" height="{grid2}" fill="url(#smallGrid)"/>
-      <path d="M {grid2} 0 L 0 0 0 {grid2}" fill="none" stroke="#e0e0e0" stroke-width="1"/>
+      <path d="M {grid2} 0 L 0 0 0 {grid2}" fill="none" stroke="#bbb" stroke-width="1"/>
     </pattern>
   </defs>
   <rect width="100%" height="100%" fill="url(#grid)"/>
