@@ -82,6 +82,82 @@ python main.py --from-cf ./aws-outputs/cloudformation
 | `--from-cf DIR` | CloudFormation から読み込み | - |
 | `--export-cf` | CloudFormation をエクスポート | False |
 | `--no-diagram` | 図の生成をスキップ | False |
+| `--drawio` | Draw.io 形式で出力（AWS 公式アイコンスタイル） | False |
+| `--svg` | SVG 形式で出力 | False |
+| `--icons-dir DIR` | AWS 公式アイコンディレクトリ | aws_icons/ |
+
+## SVG 形式での出力（AWS 公式アイコン対応）
+
+`--svg` オプションを使用すると、SVG 形式のアーキテクチャ図が生成されます：
+
+```powershell
+python main.py --from-cf ./aws-outputs/cloudformation --svg
+```
+
+### AWS 公式アイコンの使用方法
+
+1. **AWS 公式サイトからダウンロード**:
+   - https://aws.amazon.com/architecture/icons/ にアクセス
+   - 「Icon package」をクリックしてダウンロード（Asset-Package_YYYYMMDD.zip）
+
+2. **解凍して配置**:
+   ```
+   aws_diagram_generator/
+   ├── aws_icons/                    ← ここに解凍
+   │   ├── Architecture-Service-Icons_YYYYMMDD/
+   │   │   ├── Arch_Compute/
+   │   │   │   ├── 64/
+   │   │   │   │   ├── Arch_AWS-Lambda_64.svg
+   │   │   │   │   ├── Arch_Amazon-EC2_64.svg
+   │   │   │   │   └── ...
+   │   │   ├── Arch_Networking-Content-Delivery/
+   │   │   ├── Arch_Database/
+   │   │   └── ...
+   │   └── Resource-Icons_YYYYMMDD/
+   │       ├── Res_Networking-Content-Delivery/
+   │       │   ├── 48/
+   │       │   │   ├── Res_Elastic-Load-Balancing_Target_48.svg
+   │       │   │   └── ...
+   │       └── ...
+   ├── main.py
+   └── ...
+   ```
+
+3. **実行**:
+   ```powershell
+   # 自動検出（aws_icons/ フォルダ）
+   python main.py --svg
+   
+   # または明示的に指定
+   python main.py --svg --icons-dir ./path/to/aws_icons
+   ```
+
+### アイコンがない場合
+
+`aws_icons/` フォルダがない場合や、特定のアイコンが見つからない場合は、
+プログラム内蔵のデフォルトアイコン（簡略化された SVG パス）が使用されます。
+
+## Draw.io 形式での出力
+
+`--drawio` オプションを使用すると、AWS 公式アイコンスタイルの Draw.io ファイルが生成されます：
+
+```powershell
+python main.py --from-cf ./aws-outputs/cloudformation --drawio
+```
+
+生成された `.drawio` ファイルは：
+- https://app.diagrams.net/ で開いて編集可能
+- 位置やサイズを自由に調整可能
+- PNG/SVG/PDF にエクスポート可能
+
+### Draw.io の特徴
+
+| 項目 | 説明 |
+|-----|------|
+| アイコン | AWS Architecture Icons（公式） |
+| レイアウト | AWS Cloud → Region → VPC → AZ → Subnet の階層構造 |
+| 色分け | VPC: 紫、Private Subnet: 緑、EKS: オレンジ |
+| 接続線 | 黒色の矢印で接続 |
 
 ## 対応リソース
 
@@ -133,3 +209,29 @@ A: リソースが多い場合、自動的に合併されます。必要に応�
 ## ライセンス
 
 MIT License
+
+
+
+py generate_word_docs_from_yaml.py --input-dir aws-resources-test --output-dir test-docs
+py generate_simple_diagram_per_yaml.py --input-dir aws-resources-test --output-dir test-docs
+
+py generate_docs_with_diagrams.py --input-dir aws-resources-test --output-dir test-docs
+
+
+py generate_diagram_architecture.py --input-dir aws-resources-test --output test-docs
+py generate_diagram_architecture.py --input-dir aws-resources-test --output-dir test-docs --output-name my-architecture
+
+
+# 删除旧数据，重新读取（获取新的 API 数据）
+rd /s /q .\cloudformation
+python main.py --export-cf ./cloudformation
+
+# 生成 SVG
+python main.py --from-cf ./cloudformation --svg
+
+# 方式1：自动检测（程序会自动查找 aws_icons/ 目录）
+python main.py --svg
+
+# 方式2：明确指定图标目录
+python main.py --svg --export-cf ./cloudformation --icons-dir ".\aws_icons"
+

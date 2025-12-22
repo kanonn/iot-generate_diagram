@@ -79,6 +79,33 @@ class SVGGenerator:
     ICON_SPACING = 120  # 横方向アイコン間隔（アイコン40px + 間隔80px = 120px）
     ROW_SPACING = 120  # 縦方向行間隔（アイコン40px + 間隔80px = 120px）
     
+    # 凡例用サービス名マッピング
+    SERVICE_DISPLAY_NAMES = {
+        'EC2': 'Amazon EC2',
+        'Lambda': 'AWS Lambda',
+        'EKS': 'Amazon EKS',
+        'ECS': 'Amazon ECS',
+        'Fargate': 'AWS Fargate',
+        'ALB': 'Application LB',
+        'NLB': 'Network LB',
+        'TargetGroup': 'Target Group',
+        'VPCEndpoint': 'VPC Endpoint',
+        'InternetGateway': 'Internet GW',
+        'NATGateway': 'NAT Gateway',
+        'CloudFront': 'CloudFront',
+        'RDS': 'Amazon RDS',
+        'DynamoDB': 'DynamoDB',
+        'ElastiCache': 'ElastiCache',
+        'S3': 'Amazon S3',
+        'EFS': 'Amazon EFS',
+        'SNS': 'Amazon SNS',
+        'SQS': 'Amazon SQS',
+        'APIGateway': 'API Gateway',
+        'EventBridge': 'EventBridge',
+        'SecurityGroup': 'Security Group',
+        'IAM': 'AWS IAM',
+    }
+    
     def __init__(self, reader, icons_dir=None):
         self.reader = reader
         self.node_positions = {}
@@ -218,20 +245,66 @@ class SVGGenerator:
         if size is None:
             size = self.ICON_SIZE
         
-        short_label = str(label)[:14] if label else ''
         self.node_positions[res_id] = (x + size/2, y + size/2, size, size)
+        
+        # ラベルを複数行に分割（長い名前に対応）
+        label_lines = self._wrap_label(str(label) if label else '', max_chars=14)
         
         # アイコンを読み込み
         icon_source, icon_data, icon_path = self._load_svg_icon(icon_type)
         
         if icon_source == 'file':
             # 公式 SVG ファイルを使用
-            return self._create_icon_from_svg_file(icon_data, x, y, res_id, short_label, size)
+            return self._create_icon_from_svg_file(icon_data, x, y, res_id, label_lines, size)
         else:
             # デフォルトアイコンを使用
-            return self._create_icon_from_default(icon_data, x, y, res_id, short_label, size)
+            return self._create_icon_from_default(icon_data, x, y, res_id, label_lines, size)
     
-    def _create_icon_from_svg_file(self, svg_content, x, y, res_id, label, size):
+    def _wrap_label(self, label, max_chars=14):
+        """ラベルを複数行に分割"""
+        if not label:
+            return []
+        
+        # 最大3行まで
+        lines = []
+        remaining = label
+        
+        for _ in range(3):
+            if len(remaining) <= max_chars:
+                lines.append(remaining)
+                break
+            
+            # 分割位置を探す（ハイフン、アンダースコア、スペースなど）
+            split_pos = -1
+            for sep in ['-', '_', ' ', '/']:
+                pos = remaining[:max_chars].rfind(sep)
+                if pos > 0:
+                    split_pos = pos + 1
+                    break
+            
+            if split_pos <= 0:
+                split_pos = max_chars
+            
+            lines.append(remaining[:split_pos])
+            remaining = remaining[split_pos:]
+        
+        return lines
+    
+    def _create_label_svg(self, x, y, label_lines, size):
+        """複数行ラベルのSVGを生成"""
+        if not label_lines:
+            return ''
+        
+        label_svg = ''
+        line_height = 11
+        start_y = y + size + 12
+        
+        for i, line in enumerate(label_lines):
+            label_svg += f'      <text x="{x + size/2}" y="{start_y + i * line_height}" text-anchor="middle" fill="#333" font-size="9">{line}</text>\n'
+        
+        return label_svg
+    
+    def _create_icon_from_svg_file(self, svg_content, x, y, res_id, label_lines, size):
         """公式 SVG ファイルからアイコンを作成"""
         # SVG の viewBox を取得
         viewbox_match = re.search(r'viewBox="([^"]+)"', svg_content)
@@ -255,15 +328,16 @@ class SVGGenerator:
         # スケール計算
         scale = size / max(vb_width, vb_height)
         
+        label_svg = self._create_label_svg(x, y, label_lines, size)
+        
         return f'''    <g id="{res_id}" transform="translate({x},{y})">
       <g transform="scale({scale:.4f})">
 {inner_content}
       </g>
-      <text x="{size/2}" y="{size + 12}" text-anchor="middle" fill="#333" font-size="9">{label}</text>
-    </g>
+{label_svg}    </g>
 '''
     
-    def _create_icon_from_default(self, icon_def, x, y, res_id, label, size):
+    def _create_icon_from_default(self, icon_def, x, y, res_id, label_lines, size):
         """デフォルトアイコンを作成"""
         bg_color = icon_def['bg']
         paths = icon_def['paths']
@@ -273,12 +347,13 @@ class SVGGenerator:
         for p in paths:
             path_elements += f'        <path d="{p}" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>\n'
         
+        label_svg = self._create_label_svg(x, y, label_lines, size)
+        
         return f'''    <g id="{res_id}" transform="translate({x},{y})">
       <rect x="0" y="0" width="{size}" height="{size}" rx="4" fill="{bg_color}"/>
       <g transform="scale({scale:.3f})">
 {path_elements}      </g>
-      <text x="{size/2}" y="{size + 12}" text-anchor="middle" fill="#333" font-size="9">{label}</text>
-    </g>
+{label_svg}    </g>
 '''
     
     def _create_edge_svg(self, source_id, target_id):
@@ -313,9 +388,12 @@ class SVGGenerator:
         
         self._record_resource_ids(vpc_data, external_resources)
         
+        # 使用されているアイコンタイプを収集
+        used_icon_types = self._collect_used_icon_types(vpc_data, external_resources)
+        
         content_svg, total_width, total_height = self._layout_all(vpc_data, external_resources)
         
-        svg_content = self._build_svg_document(content_svg, total_width, total_height)
+        svg_content = self._build_svg_document(content_svg, total_width, total_height, used_icon_types)
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(svg_content)
@@ -323,6 +401,28 @@ class SVGGenerator:
         print(f"\n✓ SVG diagram generated: {output_path}")
         print(f"  Size: {total_width} x {total_height}")
         return output_path
+    
+    def _collect_used_icon_types(self, vpc_data, external_resources):
+        """使用されているアイコンタイプを収集"""
+        used = set()
+        
+        for vpc_id, vpc_info in vpc_data.items():
+            for subnet_info in vpc_info.get('subnets', {}).values():
+                for icon_type, res_id, name in subnet_info.get('resources', []):
+                    used.add(icon_type)
+            for icon_type, res_id, name in vpc_info.get('vpc_level_resources', []):
+                used.add(icon_type)
+        
+        for icon_type, res_id, name in external_resources:
+            used.add(icon_type)
+        
+        # 順序を固定（カテゴリ順）
+        order = ['EC2', 'Lambda', 'EKS', 'ECS', 'Fargate', 'ALB', 'NLB', 'TargetGroup', 
+                 'VPCEndpoint', 'InternetGateway', 'NATGateway', 'CloudFront',
+                 'RDS', 'DynamoDB', 'ElastiCache', 'S3', 'EFS', 
+                 'SNS', 'SQS', 'APIGateway', 'EventBridge', 'SecurityGroup', 'IAM']
+        
+        return [t for t in order if t in used]
     
     def _record_resource_ids(self, vpc_data, external_resources):
         for vpc_id, vpc_info in vpc_data.items():
@@ -827,7 +927,69 @@ class SVGGenerator:
         
         return '\n'.join(svg_parts), width, height
     
-    def _build_svg_document(self, content_svg, width, height):
+    def _create_legend(self, used_icon_types, start_x, start_y):
+        """凡例を作成"""
+        svg_parts = []
+        
+        icon_size = 24  # 凡例用の小さいアイコン
+        item_spacing = 100  # 各凡例アイテムの間隔
+        
+        # 凡例タイトル
+        svg_parts.append(f'    <text x="{start_x}" y="{start_y}" fill="#232F3E" font-size="10" font-weight="bold">Legend:</text>\n')
+        
+        x = start_x + 50
+        y = start_y - 8
+        
+        for icon_type in used_icon_types:
+            if icon_type not in self.SERVICE_DISPLAY_NAMES:
+                continue
+            
+            display_name = self.SERVICE_DISPLAY_NAMES[icon_type]
+            
+            # アイコンを読み込み
+            icon_source, icon_data, icon_path = self._load_svg_icon(icon_type)
+            
+            if icon_source == 'file':
+                # 公式 SVG（簡略版）
+                viewbox_match = re.search(r'viewBox="([^"]+)"', icon_data)
+                if viewbox_match:
+                    vb = viewbox_match.group(1).split()
+                    vb_size = float(vb[2]) if len(vb) >= 3 else 64
+                else:
+                    vb_size = 64
+                
+                inner_match = re.search(r'<svg[^>]*>(.*)</svg>', icon_data, re.DOTALL)
+                inner_content = inner_match.group(1) if inner_match else ''
+                scale = icon_size / vb_size
+                
+                svg_parts.append(f'''    <g transform="translate({x},{y})">
+      <g transform="scale({scale:.4f})">{inner_content}</g>
+    </g>
+''')
+            else:
+                # デフォルトアイコン
+                bg_color = icon_data['bg']
+                paths = icon_data['paths']
+                scale = icon_size / 24
+                
+                path_elements = ''
+                for p in paths:
+                    path_elements += f'<path d="{p}" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+                
+                svg_parts.append(f'''    <g transform="translate({x},{y})">
+      <rect x="0" y="0" width="{icon_size}" height="{icon_size}" rx="3" fill="{bg_color}"/>
+      <g transform="scale({scale:.3f})">{path_elements}</g>
+    </g>
+''')
+            
+            # サービス名
+            svg_parts.append(f'    <text x="{x + icon_size + 5}" y="{y + icon_size/2 + 4}" fill="#333" font-size="9">{display_name}</text>\n')
+            
+            x += item_spacing
+        
+        return '\n'.join(svg_parts), x - start_x
+    
+    def _build_svg_document(self, content_svg, width, height, used_icon_types):
         edge_svg = '\n  <!-- Connections -->\n'
         drawn = set()
         for source, targets in self.relationships_map.items():
@@ -839,6 +1001,12 @@ class SVGGenerator:
         rel_count = sum(len(v) for v in self.relationships_map.values())
         grid = self.GRID_SIZE
         grid2 = grid * 2
+        
+        # 凡例を生成（右上に配置）
+        legend_svg, legend_width = self._create_legend(used_icon_types, width - 50, 25)
+        # 凡例の幅に応じて図の幅を調整
+        legend_x = max(300, width - legend_width - 30)
+        legend_svg, _ = self._create_legend(used_icon_types, legend_x, 25)
         
         return f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" 
@@ -862,6 +1030,9 @@ class SVGGenerator:
   
   <text x="20" y="25" fill="#232F3E" font-size="14" font-weight="bold">AWS Architecture Diagram</text>
   <text x="20" y="42" fill="#666" font-size="10">VPCs: {len(self.reader.vpcs)} | Subnets: {len(self.reader.subnets)} | Relationships: {rel_count}</text>
+
+  <!-- Legend -->
+{legend_svg}
 
 {content_svg}
 {edge_svg}
