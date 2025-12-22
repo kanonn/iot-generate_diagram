@@ -290,17 +290,17 @@ class SVGGenerator:
         
         return lines
     
-    def _create_label_svg(self, x, y, label_lines, size):
-        """複数行ラベルのSVGを生成"""
+    def _create_label_svg(self, label_lines, size):
+        """複数行ラベルのSVGを生成（相対座標、親グループ内）"""
         if not label_lines:
             return ''
         
         label_svg = ''
         line_height = 11
-        start_y = y + size + 12
+        start_y = size + 12
         
         for i, line in enumerate(label_lines):
-            label_svg += f'      <text x="{x + size/2}" y="{start_y + i * line_height}" text-anchor="middle" fill="#333" font-size="9">{line}</text>\n'
+            label_svg += f'      <text x="{size/2}" y="{start_y + i * line_height}" text-anchor="middle" fill="#333" font-size="9">{line}</text>\n'
         
         return label_svg
     
@@ -328,7 +328,7 @@ class SVGGenerator:
         # スケール計算
         scale = size / max(vb_width, vb_height)
         
-        label_svg = self._create_label_svg(x, y, label_lines, size)
+        label_svg = self._create_label_svg(label_lines, size)
         
         return f'''    <g id="{res_id}" transform="translate({x},{y})">
       <g transform="scale({scale:.4f})">
@@ -347,7 +347,7 @@ class SVGGenerator:
         for p in paths:
             path_elements += f'        <path d="{p}" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>\n'
         
-        label_svg = self._create_label_svg(x, y, label_lines, size)
+        label_svg = self._create_label_svg(label_lines, size)
         
         return f'''    <g id="{res_id}" transform="translate({x},{y})">
       <rect x="0" y="0" width="{size}" height="{size}" rx="4" fill="{bg_color}"/>

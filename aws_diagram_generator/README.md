@@ -209,29 +209,3 @@ A: リソースが多い場合、自動的に合併されます。必要に応�
 ## ライセンス
 
 MIT License
-
-
-
-py generate_word_docs_from_yaml.py --input-dir aws-resources-test --output-dir test-docs
-py generate_simple_diagram_per_yaml.py --input-dir aws-resources-test --output-dir test-docs
-
-py generate_docs_with_diagrams.py --input-dir aws-resources-test --output-dir test-docs
-
-
-py generate_diagram_architecture.py --input-dir aws-resources-test --output test-docs
-py generate_diagram_architecture.py --input-dir aws-resources-test --output-dir test-docs --output-name my-architecture
-
-
-# 删除旧数据，重新读取（获取新的 API 数据）
-rd /s /q .\cloudformation
-python main.py --export-cf ./cloudformation
-
-# 生成 SVG
-python main.py --from-cf ./cloudformation --svg
-
-# 方式1：自动检测（程序会自动查找 aws_icons/ 目录）
-python main.py --svg
-
-# 方式2：明确指定图标目录
-python main.py --svg --export-cf ./cloudformation --icons-dir ".\aws_icons"
-
