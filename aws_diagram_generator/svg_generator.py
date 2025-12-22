@@ -584,25 +584,25 @@ class SVGGenerator:
             external.append(('S3', '__s3__', f'S3 ({len(reader.s3_buckets)})'))
         
         for name, data in reader.target_groups.items():
-            external.append(('TargetGroup', name, self._get_name(name, data)[:14]))
+            external.append(('TargetGroup', name, self._get_name(name, data)))
         
         for name, data in reader.dynamodb_tables.items():
-            external.append(('DynamoDB', name, self._get_name(name, data)[:14]))
+            external.append(('DynamoDB', name, self._get_name(name, data)))
         
         for name, data in reader.sns_topics.items():
-            external.append(('SNS', name, self._get_name(name, data)[:14]))
+            external.append(('SNS', name, self._get_name(name, data)))
         
         for name, data in reader.sqs_queues.items():
-            external.append(('SQS', name, self._get_name(name, data)[:14]))
+            external.append(('SQS', name, self._get_name(name, data)))
         
         for name, data in reader.cloudfront_distributions.items():
-            external.append(('CloudFront', name, f'CF-{name[:10]}'))
+            external.append(('CloudFront', name, self._get_name(name, data)))
         
         for name, data in reader.api_gateways.items():
-            external.append(('APIGateway', name, self._get_name(name, data)[:14]))
+            external.append(('APIGateway', name, self._get_name(name, data)))
         
         for name, data in reader.cloudwatch_event_rules.items():
-            external.append(('EventBridge', name, self._get_name(name, data)[:14]))
+            external.append(('EventBridge', name, self._get_name(name, data)))
         
         if reader.iam_roles:
             external.append(('IAM', '__iam__', f'IAM ({len(reader.iam_roles)})'))
@@ -611,7 +611,7 @@ class SVGGenerator:
             external.append(('EFS', '__efs__', f'EFS ({len(reader.efs_filesystems)})'))
         
         for name, data in reader.ecs_clusters.items():
-            external.append(('ECS', name, self._get_name(name, data)[:14]))
+            external.append(('ECS', name, self._get_name(name, data)))
         
         vpc_lambda_names = set()
         for func_name, data in reader.lambda_functions.items():
@@ -622,7 +622,7 @@ class SVGGenerator:
         
         for func_name, data in reader.lambda_functions.items():
             if func_name not in vpc_lambda_names:
-                external.append(('Lambda', func_name, self._get_name(func_name, data)[:14]))
+                external.append(('Lambda', func_name, self._get_name(func_name, data)))
         
         return external
     
