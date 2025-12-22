@@ -265,11 +265,11 @@ class SVGGenerator:
         if not label:
             return []
         
-        # 最大3行まで
+        # 最大5行まで
         lines = []
         remaining = label
         
-        for i in range(3):
+        for i in range(5):
             if not remaining:
                 break
                 
@@ -292,8 +292,8 @@ class SVGGenerator:
             remaining = remaining[split_pos:]
             
             # 最後の行で残りがある場合は追加
-            if i == 2 and remaining:
-                # 3行目の末尾に ... を付けて残りを示す
+            if i == 4 and remaining:
+                # 5行目の末尾に ... を付けて残りを示す
                 if len(lines[-1]) > max_chars - 3:
                     lines[-1] = lines[-1][:max_chars-3] + '...'
                 else:
