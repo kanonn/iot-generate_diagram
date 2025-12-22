@@ -248,7 +248,7 @@ class SVGGenerator:
         self.node_positions[res_id] = (x + size/2, y + size/2, size, size)
         
         # ラベルを複数行に分割（長い名前に対応）
-        label_lines = self._wrap_label(str(label) if label else '', max_chars=14)
+        label_lines = self._wrap_label(str(label) if label else '', max_chars=20)
         
         # アイコンを読み込み
         icon_source, icon_data, icon_path = self._load_svg_icon(icon_type)
@@ -260,7 +260,7 @@ class SVGGenerator:
             # デフォルトアイコンを使用
             return self._create_icon_from_default(icon_data, x, y, res_id, label_lines, size)
     
-    def _wrap_label(self, label, max_chars=14):
+    def _wrap_label(self, label, max_chars=20):
         """ラベルを複数行に分割"""
         if not label:
             return []
@@ -269,7 +269,10 @@ class SVGGenerator:
         lines = []
         remaining = label
         
-        for _ in range(3):
+        for i in range(3):
+            if not remaining:
+                break
+                
             if len(remaining) <= max_chars:
                 lines.append(remaining)
                 break
@@ -287,6 +290,14 @@ class SVGGenerator:
             
             lines.append(remaining[:split_pos])
             remaining = remaining[split_pos:]
+            
+            # 最後の行で残りがある場合は追加
+            if i == 2 and remaining:
+                # 3行目の末尾に ... を付けて残りを示す
+                if len(lines[-1]) > max_chars - 3:
+                    lines[-1] = lines[-1][:max_chars-3] + '...'
+                else:
+                    lines[-1] = lines[-1].rstrip('-_/ ') + '...'
         
         return lines
     
