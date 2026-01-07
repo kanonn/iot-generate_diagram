@@ -12,9 +12,19 @@ from collections import defaultdict
 class AWSResourceReader:
     """AWS からリソースを読み取るクラス"""
     
-    def __init__(self, region='ap-northeast-1'):
+    def __init__(self, region='ap-northeast-1', role_arn=None, external_id=None, session_name='AWSArchitectureDiagramGenerator'):
+        """
+        AWS リソースリーダーを初期化
+        
+        Args:
+            region: AWS リージョン（デフォルト: ap-northeast-1）
+            role_arn: AssumeRole する IAM ロールの ARN（オプション）
+            external_id: AssumeRole 時の外部 ID（オプション）
+            session_name: AssumeRole 時のセッション名（デフォルト: AWSArchitectureDiagramGenerator）
+        """
         self.region = region
         self.errors = []
+        self.role_arn = role_arn
         
         # リソースストレージ
         self.vpcs = {}
@@ -59,32 +69,98 @@ class AWSResourceReader:
         print(f"Initializing AWS clients for region: {region}")
         
         try:
-            self.ec2 = boto3.client('ec2', region_name=region)
-            self.ecs = boto3.client('ecs', region_name=region)
-            self.eks = boto3.client('eks', region_name=region)
-            self.lambda_client = boto3.client('lambda', region_name=region)
-            self.rds = boto3.client('rds', region_name=region)
-            self.dynamodb = boto3.client('dynamodb', region_name=region)
-            self.s3 = boto3.client('s3', region_name=region)
-            self.elbv2 = boto3.client('elbv2', region_name=region)
-            self.efs = boto3.client('efs', region_name=region)
-            self.sqs = boto3.client('sqs', region_name=region)
-            self.sns = boto3.client('sns', region_name=region)
-            self.iam = boto3.client('iam')
-            self.logs = boto3.client('logs', region_name=region)
-            self.elasticache = boto3.client('elasticache', region_name=region)
+            # IAM Role を使用する場合は AssumeRole
+            if role_arn:
+                session = self._assume_role(role_arn, external_id, session_name)
+            else:
+                session = boto3.Session()
             
-            # NEW: 追加クライアント
-            self.cloudfront = boto3.client('cloudfront')
-            self.apigateway = boto3.client('apigateway', region_name=region)
-            self.apigatewayv2 = boto3.client('apigatewayv2', region_name=region)
-            self.events = boto3.client('events', region_name=region)
-            
+            self._init_clients(session, region)
             print("✓ AWS clients initialized successfully\n")
             
         except NoCredentialsError:
             print("\nERROR: AWS credentials not found!")
             raise
+    
+    def _assume_role(self, role_arn, external_id=None, session_name='AWSArchitectureDiagramGenerator'):
+        """
+        IAM ロールを AssumeRole して一時的な認証情報を取得
+        
+        Args:
+            role_arn: AssumeRole する IAM ロールの ARN
+            external_id: 外部 ID（オプション、クロスアカウントアクセス時に使用）
+            session_name: セッション名
+            
+        Returns:
+            boto3.Session: AssumeRole した認証情報を持つセッション
+        """
+        print(f"  Assuming role: {role_arn}")
+        
+        sts_client = boto3.client('sts')
+        
+        assume_role_params = {
+            'RoleArn': role_arn,
+            'RoleSessionName': session_name,
+            'DurationSeconds': 3600  # 1時間
+        }
+        
+        # External ID が指定されている場合は追加
+        if external_id:
+            assume_role_params['ExternalId'] = external_id
+            print(f"  Using External ID: {external_id[:8]}...")
+        
+        try:
+            response = sts_client.assume_role(**assume_role_params)
+            credentials = response['Credentials']
+            
+            print(f"  ✓ AssumeRole successful")
+            print(f"    Session expires: {credentials['Expiration']}")
+            
+            # 一時的な認証情報でセッションを作成
+            session = boto3.Session(
+                aws_access_key_id=credentials['AccessKeyId'],
+                aws_secret_access_key=credentials['SecretAccessKey'],
+                aws_session_token=credentials['SessionToken']
+            )
+            
+            return session
+            
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', '')
+            error_msg = e.response.get('Error', {}).get('Message', str(e))
+            print(f"\nERROR: AssumeRole failed!")
+            print(f"  Error Code: {error_code}")
+            print(f"  Message: {error_msg}")
+            raise
+    
+    def _init_clients(self, session, region):
+        """
+        boto3 クライアントを初期化
+        
+        Args:
+            session: boto3.Session
+            region: AWS リージョン
+        """
+        self.ec2 = session.client('ec2', region_name=region)
+        self.ecs = session.client('ecs', region_name=region)
+        self.eks = session.client('eks', region_name=region)
+        self.lambda_client = session.client('lambda', region_name=region)
+        self.rds = session.client('rds', region_name=region)
+        self.dynamodb = session.client('dynamodb', region_name=region)
+        self.s3 = session.client('s3', region_name=region)
+        self.elbv2 = session.client('elbv2', region_name=region)
+        self.efs = session.client('efs', region_name=region)
+        self.sqs = session.client('sqs', region_name=region)
+        self.sns = session.client('sns', region_name=region)
+        self.iam = session.client('iam')
+        self.logs = session.client('logs', region_name=region)
+        self.elasticache = session.client('elasticache', region_name=region)
+        
+        # NEW: 追加クライアント
+        self.cloudfront = session.client('cloudfront')
+        self.apigateway = session.client('apigateway', region_name=region)
+        self.apigatewayv2 = session.client('apigatewayv2', region_name=region)
+        self.events = session.client('events', region_name=region)
     
     def _safe_call(self, func, service_name, *args, **kwargs):
         """安全に AWS API を呼び出す"""

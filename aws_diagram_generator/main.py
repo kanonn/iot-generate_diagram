@@ -7,10 +7,14 @@ AWS アーキテクチャ図生成器 V3
 2. CloudFormation 形式でエクスポート
 3. CloudFormation ファイルからインポート（--from-cf オプション）
 4. リソース間の関係を検出して架構図を生成
+5. IAM Role (AssumeRole) 対応
 
 使用方法:
     # AWS から直接読み取って図を生成
     python main.py
+    
+    # IAM Role を使用して読み取り
+    python main.py --role-arn arn:aws:iam::123456789012:role/ReadOnlyRole
     
     # AWS から読み取り、CloudFormation をエクスポート
     python main.py --export-cf
@@ -39,6 +43,12 @@ def main():
     # AWS から直接読み取って図を生成
     python main.py
     
+    # IAM Role を使用して読み取り（推奨）
+    python main.py --role-arn arn:aws:iam::123456789012:role/DiagramReadOnlyRole
+    
+    # クロスアカウントアクセス（External ID 付き）
+    python main.py --role-arn arn:aws:iam::123456789012:role/CrossAccountRole --external-id MyExternalId123
+    
     # CloudFormation もエクスポート
     python main.py --export-cf
     
@@ -54,6 +64,25 @@ def main():
         '--region',
         default='ap-northeast-1',
         help='AWS リージョン (default: ap-northeast-1)'
+    )
+    
+    parser.add_argument(
+        '--role-arn',
+        metavar='ARN',
+        help='AssumeRole する IAM ロールの ARN（推奨：読み取り専用ロール）'
+    )
+    
+    parser.add_argument(
+        '--external-id',
+        metavar='ID',
+        help='AssumeRole 時の External ID（クロスアカウントアクセス時に使用）'
+    )
+    
+    parser.add_argument(
+        '--session-name',
+        default='AWSArchitectureDiagramGenerator',
+        metavar='NAME',
+        help='AssumeRole 時のセッション名 (default: AWSArchitectureDiagramGenerator)'
     )
     
     parser.add_argument(
@@ -126,6 +155,8 @@ def main():
     else:
         print(f"Mode: Read from AWS API")
         print(f"Region: {args.region}")
+        if args.role_arn:
+            print(f"IAM Role: {args.role_arn}")
     
     print("=" * 80 + "\n")
     
@@ -145,7 +176,12 @@ def main():
         from aws_reader import AWSResourceReader
         
         try:
-            reader = AWSResourceReader(region=args.region)
+            reader = AWSResourceReader(
+                region=args.region,
+                role_arn=args.role_arn,
+                external_id=args.external_id,
+                session_name=args.session_name
+            )
             total = reader.read_all_resources()
         except Exception as e:
             print(f"\nERROR: Failed to read AWS resources: {e}")
