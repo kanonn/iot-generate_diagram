@@ -1,0 +1,48 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AWSArchitectureDiagramGeneratorReadOnly",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeInternetGateways",
+                "ec2:DescribeNatGateways",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeVpcEndpoints",
+                "ec2:DescribeInstances",
+                "ec2:DescribeRouteTables",
+                "ecs:ListClusters",
+                "ecs:DescribeClusters",
+                "ecs:ListServices",
+                "ecs:DescribeServices",
+                "eks:ListClusters",
+                "eks:DescribeCluster",
+                "lambda:ListFunctions",
+                "lambda:ListEventSourceMappings",
+                "rds:DescribeDBInstances",
+                "dynamodb:ListTables",
+                "dynamodb:DescribeTable",
+                "elasticache:DescribeCacheClusters",
+                "s3:ListAllMyBuckets",
+                "s3:GetBucketLocation",
+                "elasticfilesystem:DescribeFileSystems",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeListeners",
+                "elasticloadbalancing:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeTargetHealth",
+                "sqs:ListQueues",
+                "sns:ListTopics",
+                "sns:ListSubscriptionsByTopic",
+                "iam:ListRoles",
+                "logs:DescribeLogGroups",
+                "cloudfront:ListDistributions",
+                "apigateway:GET",
+                "events:ListRules",
+                "events:ListTargetsByRule"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
