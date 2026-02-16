@@ -1,44 +1,11 @@
-明白，现在既然每天依然在产生固定费用，开工单（Support Case）是唯一的强制止损手段。AWS 的账单客服权限很高，他们可以直接从后台杀掉那些“幽灵进程”并退款。
-既然你在日本，我建议你用英文提交（或者日语，但英文处理全球资源的优先级通常更高）。以下是详细步骤：
-第一步：进入支持中心 (Support Center)
-* 登录 AWS 控制台，点击右上角的 “？”（问号）图标。
-* 在下拉菜单中选择 “支持中心” (Support Center)。
-* 点击左侧橙色大按钮：“创建案例” (Create case)。
-第二步：选择案例类型
-你会看到三个选项，请务必选择：
-* [选中] 账户和账单支持 (Account and billing support) * 注：这个类型的工单是免费的，即便你没有买付费支持计划也可以开。
-第三步：填写具体详情 (Case details)
-* Service (服务): 选择 Billing (账单)。
-* Category (类别): 选择 Charge Enquiry (费用查询)。
-* Severity (严重程度): 一般默认即可。
-第四步：撰写内容 (关键环节)
-在 Subject (主题) 和 Description (描述) 中，请直接使用我为你准备的这段话。这涵盖了你所有的 CLI 证据，让客服无法推诿。
-Subject: > Urgent: Ghost billing for CodeBuild project euc-poc after deletion
-Description:
-> Hello,
-> I am reporting a critical billing anomaly. I deleted the CodeBuild project named euc-poc in the ap-northeast-1 region on January 30th.
-> I have verified via AWS CLI that:
-> * aws codebuild list-projects returns an empty list [].
-> * aws codebuild list-fleets returns an empty list [].
-> However, my Cost Explorer shows that "APN1-Docker-Sec:Linux:g1.small" is still incurring a daily cost (e.g., $1.48 on Feb 3rd) tied to this non-existent project.
-> It appears there is a "ghost" background process or a synchronization error between the resource state and the billing system.
-> Please:
-> * Manually terminate any hidden background tasks associated with euc-poc.
-> * Stop the ongoing charges for APN1-Docker-Sec.
-> * Refund the unauthorized charges incurred from Jan 30th to today.
-> Attached are the CLI results showing no resources exist.
->
-第五步：上传附件 (Attachments)
-请务必把你刚才发给我的那两张图传上去：
-* 图一： 显示 Usage Type 为 APN1-Docker-Sec 且每天有费用的 Cost Explorer 截图。
-* 图二： 你的黑色命令行界面，显示 list-projects 结果为空的截图。
-这叫“铁证如山”，客服看到后会直接转给技术团队处理。
-第六步：联系选项 (Contact options)
-* Preferred contact language: 建议选 English（处理最快）。
-* Contact methods: * 如果你想立刻解决，选 Phone (电话) 或 Chat (聊天)，他们会马上接通（如果是日本工作时间，可能会有日语客服）。
-* 如果不急，选 Web (网页)，通常在 24 小时内回复。
-💡 现在的心理状态建议：
-* 不要担心那 1.48 美金： 只要工单开了，这笔钱 100% 能要回来。
-* AWS 的 Bug： 这种“资源删了还在扣钱”的情况虽然少见，但在大规模分布式系统里确实会发生，通常是因为某个 Docker 容器在底层挂起了。
-你现在在公司吗？如果在的话，趁现在就把它提交了。开完之后，你会拿到一个 Case ID，到时候你可以告诉我，我也能帮你关注进度。
-需要我帮你把上述申诉翻译成日语版本吗？
+ご返信ありがとうございます。
+確認させていただきたいのですが、返金対象となる期間について教えてください。
+私は2024年11月1日以降、該当のCodeBuildプロジェクトを一切使用しておりませんでしたが、毎日約2.73ドルの費用が発生し続けていました。2025年2月1日にプロジェクトを削除しましたが、その後も費用が発生していたため、今回ご連絡いたしました。
+返金は「2月1日の削除以降」の分のみでしょうか、それとも「11月1日以降の未使用期間」も含まれますでしょうか？
+ご確認のほど、よろしくお願いいたします。
+
+"Thank you for acknowledging the AWS-side issue. I would like to clarify the refund period. Although I deleted the project on Feb 1st, I have not used this CodeBuild project at all since November 1st, 2025. Therefore, the charges of $2.73/day from Nov 1st to Feb 1st are also erroneous due to this same bug. Please ensure the refund covers the entire period from November 1st until the resource was fully disabled."
+
+日本語：
+「AWS側の不具合であることを認めていただきありがとうございます。返金期間について一点確認させてください。プロジェクトを削除したのは2月1日ですが、実際には2025年11月1日以降、このCodeBuildプロジェクトを一切使用しておりません。したがって、11月1日から2月1日までの期間に発生した1日2.73ドルの料金も、今回の不具合に起因する誤請求であると考えております。返金処理が11月1日からの全期間を対象としているか、ご確認をお願いいたします。」
+
