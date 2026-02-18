@@ -1,28 +1,26 @@
-To: ndi.devops@nissanmotor.com
-Cc: [请抄送给你图片中提到的那位发送邮件的工程师]
-Subject: DevOps Access Request: Bitbucket & Jenkins for PoC Technical Verification - [Your Full Name]
+件名： 【承認依頼】AWS移行プロジェクトにおけるBitbucketおよびJenkinsのアクセス権限申請について
 
-Dear DevOps Team,
+本文：
+高川さん
 
-I hope this email finds you well.
+お疲れ様です、[您的名字]です。
 
-I am writing to request access to Bitbucket and Jenkins to support the ongoing PoC (Proof of Concept) environment for technical verification, as coordinated with the AWS implementation team.
+現在進めているAWS移行プロジェクト（オンプレミスからの移行案件）について、本日、実施チームのRNTBCIと打ち合わせを行いました。
 
-According to the recent project status, these accesses are required to proceed with the provisioning activities. Specifically, I would like to request access for:
+その際、プロジェクトの推進にあたり、Bitbucket および Jenkins へのアクセス権限が必要であるとの指摘を受けました。本件、進捗に関わるため至急の対応が必要となっております。
 
-User Account: [你的 Nissan 登录 ID/用户名]
+今回の申請理由と経緯は以下の通りです。
 
-Employee ID: [你的员工号]
+申請の理由：
+通常、既にAWS上で動いているプロジェクトにはこれらの環境が整っていますが、本プロジェクトは「オンプレミスからAWSへの初回移行」となるため、専用のBitbucketレポジトリやJenkinsのジョブがまだ作成されていません。環境構築および資材管理のために、新規の権限取得が必須となります。
 
-Required Access Level: Read and Execute (to view/trigger provisioning jobs and review CDK code)
+承認のお願い：
+RNTBCIチームより、「本プロジェクトで初めてこれらのツールを利用するため、管理責任者である高川さんの承認メールをエビデンスとして提出してほしい」との依頼を受けております。
 
-Target Tools: Bitbucket and Jenkins
+お忙しいところ恐縮ですが、上記内容についてご了承いただけるようでしたら、本メールへ返信する形で承認をいただけますでしょうか。
 
-Could you please let me know if there are any specific forms or approval workflows I need to complete on my end?
+ご不明な点や追加で説明が必要な事項がございましたら、いつでもお申し付けください。
+ご確認のほど、よろしくお願いいたします。
 
-Thank you for your support in enabling these tools for the project.
-
-Best regards,
-
-YUPENG [你的姓]
-[你的职位/部门名称]
+[您的名字]
+[您的部门/职位]
