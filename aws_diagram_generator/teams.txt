@@ -30,3 +30,17 @@ Teams 里大家通常喜欢开门见山，这个版本非常高效。
 4. **Logging**：原稿中 "for the logging" 里的 "the" 通常可以省略，直接说 "for logging" 即可。
 
 你可以直接复制你最喜欢的一个版本发到 Teams 里。加油，CET4 水平通过多在实际场景中应用，进步会非常快！
+
+
+选项 1：最推荐的表达（清晰、专业）
+这个版本逻辑最清楚，先说明改动，再解释日语，最后询问确认。
+
+"Hi team, regarding the S3 requirement for AWS deployment, I've updated the architecture diagram to include two S3 buckets.
+
+To clarify the Japanese labels in the diagram:
+
+プロジェクト用: For project use (our application).
+
+作業用RNTBCI: For RNTBCI’s operations.
+
+Does this look correct to you? If so, I will proceed with this diagram and apply for the additional S3 bucket."
