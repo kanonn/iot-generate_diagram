@@ -1,1 +1,3 @@
-"Hi Sudharsan, regarding Route 53: since this is an internal verification environment with a tight schedule, we are currently using the default ALB DNS name for testing. We have no immediate requirement for a custom domain or private hosted zone. Does this align with the current provisioning scope?"
+Regarding the naming issue: I see that you have updated the project name to "AB_CDE".
+
+Since this is already resolved on your end, is it okay for me to cancel the pending name-change request I sent to the other department? I'll stick with the "AB_CDE" format to keep everything consistent in our latest ticket
