@@ -1,3 +1,7 @@
-Regarding the naming issue: I see that you have updated the project name to "AB_CDE".
+Thank you for the suggestion, but using /* for Cognito is not suitable for our current phase.
 
-Since this is already resolved on your end, is it okay for me to cancel the pending name-change request I sent to the other department? I'll stick with the "AB_CDE" format to keep everything consistent in our latest ticket
+Technical Limitation: Without a Cognito App Client, we cannot complete the "Authenticate" action configuration anyway.
+
+Testing Impact: Using /* would force authentication on all traffic, which will block our ANEMS API verification.
+
+To ensure completeness for our immediate testing needs, please disregard Cognito entirely for this ticket and keep the rules as "Direct Forward" for all paths.
