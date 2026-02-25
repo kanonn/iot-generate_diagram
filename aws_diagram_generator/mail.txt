@@ -1,15 +1,23 @@
-方案一：专业且以项目进度为导向（最推荐）
-这种表达强调了 ANEMS 测试 的紧迫性，并给出了明确的后续计划，能够打消他对“架构不完整”的顾虑。
+这封邮件非常重要，它将作为你项目的“护身符”。
+
+Subject: Confirmation of PoC Environment Configuration for Project [AB_CDE]
 
 Hi Sudharsan-san,
 
-Regarding the printer configuration, the client PM is still coordinating the exact network location and IP address.
+As discussed in our recent meeting/chat, I am writing to formally confirm the following configuration details for the ANEMS API verification environment (Project: AB_CDE):
 
-To avoid delaying the high-priority ANEMS testing, I propose to decouple the printer setup from the current ticket:
+Scope & Duration: This is a short-lived PoC environment intended for internal verification only. The planned duration is no more than 4 weeks.
 
-Phase 1 (Current Ticket): Proceed with all approved components (Fargate, S3 logger, AWSMC) to start ANEMS testing immediately.
+Authentication: Due to the absence of a Cognito App Client and the urgent timeline for ANEMS testing, we have decided to exclude Cognito authentication for this phase.
 
-Phase 2 (Future Update): Once the PM confirms the printer details, I will raise a separate delta ticket to add the VGW and specific security group rules.
+Network Security: The environment is strictly restricted to the internal network (Intranet/Private VPC). There is no public internet exposure, which minimizes the security risk of bypassing Cognito for this temporary period.
 
-This approach ensures that we meet the tight deadline for ANEMS operations. Does this plan align with your requirements?
+Production Commitment: We fully acknowledge that this setup is only for PoC. For the future production environment, we will strictly adhere to the company's security standards and implement full Cognito integration.
 
+Ticket Reference: All these details, along with the S3 logger, AWSMC, and Aurora PostgreSQL configurations, are reflected in the latest (3rd) provisioning ticket.
+
+Please proceed with the approval so we can start the verification as scheduled.
+
+Best regards,
+
+[Your Name]
