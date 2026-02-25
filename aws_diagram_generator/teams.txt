@@ -1,5 +1,16 @@
-Since this is a private internal environment, we are comfortable proceeding without Cognito for this specific verification.
+1. 向上司请教的日语草稿（推荐）
+件名： プリンターのネットワーク情報の確認依頼（CIDR情報の件）
 
-This setup is only for a temporary period (max 4 weeks) to test the ANEMS API. To avoid further delays, let’s disregard the Cognito component and focus on the ALB/Fargate provisioning in the latest (3rd) ticket.
+本文：
+[上司姓]さん、お疲れ様です。
 
-Thanks for your understanding!
+インドのエンジニアチームから、以前共有したプリンター（IP：[这里填打印机IP]）について追加の確認依頼が届きました。
+
+具体的には、ネットワーク設定のための**「CIDR（サイダー）情報」、つまりサブネットの範囲**を知りたいとのことです。
+
+[上司姓]さんも詳しくないかと思われますので、もしよろしければ情報システム部（または社内IT担当者）の方に以下の内容をご確認いただけないでしょうか？
+
+【確認したい内容】
+プリンター（IP: [这里填IP]）が所属しているネットワークのCIDR表記（例：192.168.1.0/24 など）
+お手数をおかけしますが、ご協力いただけますと幸いです。
+よろしくお願いいたします。
