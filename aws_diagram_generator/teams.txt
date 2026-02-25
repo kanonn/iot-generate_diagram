@@ -1,21 +1,26 @@
-方案一：标准专业型（最推荐，防止被“踢皮球”）
-这个版本强调了你是被其他团队推荐过来的，并明确了技术需求。
+以下为你准备的英文描述，分为核心请求、技术细节和紧急理由三个部分，确保对方一眼就能抓到重点。
 
-Subject: Inquiry: Network CIDR Range for IP [这里填打印机IP] (Reference: [之前团队的名字])
+📝 Inquiry Description (咨询内容)
+Subject: [URGENT] Request for Subnet CIDR Information - Project Deadline Imminent
 
-Hi Cloud Support Team,
+Description:
+I am writing to request the CIDR subnet range for the following IP address in our target environment:
 
-I am contacting you regarding a network configuration for a printer setup.
+Target IP Address: [这里填入你的打印机IP]
 
-We need to identify the CIDR subnet range (e.g., /24 or /23) for the following IP address in the target environment:
+We need this information to finalize the network routing and firewall configurations for a printer setup. We have already coordinated with several internal technical teams, but they lack the necessary permissions for this specific environment and have directed us to your department for assistance.
 
-IP Address: [这里填打印机IP]
+🚨 Reason for Urgency (紧急理由)
+This request is time-critical for the following reasons:
 
-We have already consulted the internal technical teams, but they do not have the necessary permissions for this environment and referred us to your team for further assistance.
+Project Deadline: This overall project is scheduled for completion and handover next month.
 
-This information is required to finalize the routing and firewall settings for the project. Could you please help us verify the CIDR range or let us know if there is a specific dashboard where we can view this data?
+Environment Provisioning: We are currently in the final phase of environment setup. To remain on track with the project timeline, we are required to complete all environment-related applications by the end of this week.
 
-Thank you for your support!
+Dependency: Without the CIDR information, the network configuration cannot be finalized, which will cause a significant delay in the overall project delivery.
 
-Best regards,
-[你的名字]
+We would greatly appreciate it if you could prioritize this request and provide the CIDR range (e.g., /24 or /23) as soon as possible.
+
+Thank you for your support.
+
+💡 架构师的“过审”小贴士
