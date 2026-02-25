@@ -1,26 +1,13 @@
-以下为你准备的英文描述，分为核心请求、技术细节和紧急理由三个部分，确保对方一眼就能抓到重点。
+. 标准专业型（最推荐，适用于正式工单系统）
+这个版本清晰地解释了原因并下达了关闭指令。
 
-📝 Inquiry Description (咨询内容)
-Subject: [URGENT] Request for Subnet CIDR Information - Project Deadline Imminent
+Subject: Request to Cancel Ticket - Task Completed by DTS-N Team
 
-Description:
-I am writing to request the CIDR subnet range for the following IP address in our target environment:
+Hi Team,
 
-Target IP Address: [这里填入你的打印机IP]
+Please cancel this ticket, as the DTS-N team has already successfully updated the project name for us.
 
-We need this information to finalize the network routing and firewall configurations for a printer setup. We have already coordinated with several internal technical teams, but they lack the necessary permissions for this specific environment and have directed us to your department for assistance.
+No further action is required on this request. Thank you for your support!
 
-🚨 Reason for Urgency (紧急理由)
-This request is time-critical for the following reasons:
-
-Project Deadline: This overall project is scheduled for completion and handover next month.
-
-Environment Provisioning: We are currently in the final phase of environment setup. To remain on track with the project timeline, we are required to complete all environment-related applications by the end of this week.
-
-Dependency: Without the CIDR information, the network configuration cannot be finalized, which will cause a significant delay in the overall project delivery.
-
-We would greatly appreciate it if you could prioritize this request and provide the CIDR range (e.g., /24 or /23) as soon as possible.
-
-Thank you for your support.
-
-💡 架构师的“过审”小贴士
+Best regards,
+[你的名字]
