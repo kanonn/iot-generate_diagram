@@ -1,7 +1,5 @@
-Thank you for the suggestion, but using /* for Cognito is not suitable for our current phase.
+Since this is a private internal environment, we are comfortable proceeding without Cognito for this specific verification.
 
-Technical Limitation: Without a Cognito App Client, we cannot complete the "Authenticate" action configuration anyway.
+This setup is only for a temporary period (max 4 weeks) to test the ANEMS API. To avoid further delays, let’s disregard the Cognito component and focus on the ALB/Fargate provisioning in the latest (3rd) ticket.
 
-Testing Impact: Using /* would force authentication on all traffic, which will block our ANEMS API verification.
-
-To ensure completeness for our immediate testing needs, please disregard Cognito entirely for this ticket and keep the rules as "Direct Forward" for all paths.
+Thanks for your understanding!
