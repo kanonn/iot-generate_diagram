@@ -1,13 +1,7 @@
-. 标准专业型（最推荐，适用于正式工单系统）
-这个版本清晰地解释了原因并下达了关闭指令。
+Hi Hikaru-san,
 
-Subject: Request to Cancel Ticket - Task Completed by DTS-N Team
+To clarify my previous message: "10.2.90.54:23" meant IP 10.2.90.54 and Port 23. It was not a typo for a /23 network range.
 
-Hi Team,
+However, I do need to know the correct subnet CIDR for this IP. Could you please provide the correct network range (e.g., 10.2.90.0/24) that contains 10.2.90.54?
 
-Please cancel this ticket, as the DTS-N team has already successfully updated the project name for us.
-
-No further action is required on this request. Thank you for your support!
-
-Best regards,
-[你的名字]
+Regards,
