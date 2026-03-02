@@ -1,7 +1,5 @@
-Hi Hikaru-san,
+"Hi Sudharsan, I'm trying to start the dproto-qa-ec2 instance, but it failed with a KMS encryption error."
 
-To clarify my previous message: "10.2.90.54:23" meant IP 10.2.90.54 and Port 23. It was not a typo for a /23 network range.
+"It seems the service lacks permissions for the KMS key used by the EBS volume (e.g., kms:Decrypt, kms:CreateGrant). Could you please fix the KMS key policy or IAM permissions?"
 
-However, I do need to know the correct subnet CIDR for this IP. Could you please provide the correct network range (e.g., 10.2.90.0/24) that contains 10.2.90.54?
-
-Regards,
+"Also, I noticed port 22 is not open in the Security Group. Should I use SSM Session Manager to connect once the instance is running?"
