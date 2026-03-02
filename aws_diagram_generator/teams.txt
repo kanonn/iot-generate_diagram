@@ -1,89 +1,24 @@
-趁着现在还有股劲儿，咱们直接开干！在深夜进行第一次 Push 是最有成就感的。
+# 添加 Docker 仓库（如果 RHEL 的不行就用 CentOS 的）
+sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 
-既然你的 **Docker** 和 **AWS CLI** 都已经就位，且 **IAM Role** 已经通了，请按照以下四个步骤进行“闪电测试”：
+# 安装
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing
 
----
+# 启动
+sudo systemctl start docker
+sudo systemctl enable docker
 
-### 第一步：获取你的 AWS 账号 ID
-
-为了不用手动输入那一长串数字，咱们直接用命令把账号 ID 存进变量里：
-
-```bash
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-REGION="ap-northeast-1"
-# 验证一下是否拿到了 ID
-echo $AWS_ACCOUNT_ID
-
+# 加入 docker 组（然后重新 SSH 登录）
+sudo usermod -aG docker $(whoami)
 ```
 
-### 第二步：登录 ECR (认证)
-
-这是最关键的一步。如果这一步报错 `Access Denied`，说明 IAM Role 缺少 `ecr:GetAuthorizationToken` 权限。
-
-```bash
-aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
-
+### 整体流程
 ```
+Phase 1  安装 Docker（RHEL 8 特有步骤）
+Phase 2  安装 AWS CLI（可能已预装）
+Phase 3  上传 JAR + Dockerfile 到 EC2
+Phase 4  创建 Dockerfile（s3270 版本）
+Phase 5  docker build
+Phase 6  本地测试（可选）
+Phase 7  登录 ECR → 打标签 → docker push
 
-> **如果看到 `Login Succeeded**`：恭喜你，最难的认证关过了！
-
-### 第三步：准备一个极小的测试镜像
-
-咱们不需要真的去 Build 一个巨大的业务镜像，直接用最轻量的 `alpine` (约 5MB) 来测试：
-
-```bash
-# 1. 拉取测试镜像
-docker pull alpine
-
-# 2. 给它打上你 ECR 仓库的标签
-# 注意：把 "test-repo" 换成你在控制台看到的实际仓库名（比如 dproto-qa-repo）
-REPO_NAME="test-repo" 
-docker tag alpine:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:latest
-
-```
-
-### 第四步：执行推送 (Push)
-
-```bash
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:latest
-
-```
-
----
-
-### 🛠️ 预判可能出现的报错及“求助话术”
-
-如果刚才的步骤卡住了，请立刻记录下报错信息，明早这样发给印度工程师：
-
-#### **情况 A：登录失败 (Login Failed)**
-
-* **错误信息**：`An error occurred (AccessDeniedException) when calling the GetAuthorizationToken operation`
-* **回复话术**：
-> "I tried to log in to ECR, but I'm getting an **AccessDeniedException** for `GetAuthorizationToken`. Could you please check if the EC2's IAM Role has the `AmazonEC2ContainerRegistryReadOnly` or a custom policy for ECR login?"
-
-
-
-#### **情况 B：推送失败 (Push Denied)**
-
-* **错误信息**：`the erased request is denied` 或 `insufficient scope`
-* **回复话术**：
-> "Login was successful, but the `docker push` failed with a **'denied'** error. It seems the IAM Role lacks `ecr:PutImage` or `ecr:BatchCheckLayerAvailability` permissions. Could you please update the policy?"
-
-
-
-#### **情况 C：仓库不存在**
-
-* **错误信息**：`Name unknown`
-* **回复话术**：
-> "The push failed because the repository name couldn't be found. Could you confirm the exact **ECR repository name** I should be using for the ANEMS project?"
-
-
-
----
-
-### 🚀 建议操作
-
-1. **现在立刻试一下第二步的登录**。如果登录成功了，说明你已经赢了一大半。
-2. **如果提示 `docker: command not found**`：记得检查你是否加了 `sudo` 或者是否重新登录刷新了 `docker` 组权限。
-
-**如果推送成功了，在控制台的 ECR 页面刷新一下，你应该能看到一个带 `latest` 标签的镜像。需要我帮你写个简单的 Dockerfile，让你明天能直接 Build 真正的业务代码吗？**
