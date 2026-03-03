@@ -33,15 +33,9 @@ Gemini の回答
 
 
 
-Following up on our previous query, I would like to clarify that our current architecture does not utilize CI/CD. Therefore, we have not engaged the NDI team for any pipeline setup.
+Thank you very much for your understanding and for specifically approving this approach for our team. We truly appreciate your support in helping us move forward with this setup.
 
-Our goal is to have the basic Task Definition, Task, and Service provisioned as part of the environment setup, identical to the TVSO team’s experience (which also didn't involve NDI according to their workflow).
+We are ready to take action immediately. Could you please guide us on the next steps? Let us know what information or documentation we need to prepare from our side, and we will get started on it right away.
 
-Since these resources are currently missing from our environment:
-
-Could you confirm if there is a way to trigger the creation of these core resources without a CI/CD pipeline?
-
-What is the standard procedure for teams who don't require NDI/CI/CD but need the ECS resources pre-configured?
-
-We look forward to your guidance on the next steps.
-
+Best regards,
+[Your Name]
