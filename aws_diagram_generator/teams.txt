@@ -1,21 +1,6 @@
-Subject: RE: Regarding ECR Push Permissions - ANEMS Project
+お疲れ様です。ANEMSのFargate環境構築の進捗について共有いたします。
 
-Hi Sudharsan,
+現在、リソースの申請は完了しておりますが、RNTBCI側の対応が一部未完了の状態です。
+先方に問い合わせたところ、一部の設定（Task Definition等）はNDIチームの管轄であり、こちらへの権限付与もセキュリティ上不可との回答でした。
 
-Thanks for the update on the ECS cluster. However, I am still unable to push the image to ECR.
-
-I am getting an AccessDeniedException when running the login/push command (see attached screenshot).
-
-Since CloudOps manages the IAM policies for our EC2 host, could you please fix the permissions so I can successfully push the image to the repository?
-
-Let me know once it's resolved.
-
-Best regards,
-[Your Name]
-
-
-Hi Sudharsan,
-
-The email address you provided for the NDI team seems to be incorrect or invalid. Could you please double-check and provide the correct contact information or a functional mailing list for them?
-
-Thanks.
+そのため、現在はNDIチームへ詳細を確認し、対応を依頼しているところです。進展があり次第、再度共有させていただきます。
