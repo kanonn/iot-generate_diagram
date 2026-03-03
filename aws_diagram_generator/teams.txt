@@ -25,10 +25,7 @@
 
 "Hi Akhil / Sudharsan,"
 
-"I have a quick follow-up regarding the Task Definition for the [另一个团队的名字] environment."
+"I see, thanks for clarifying that it was a separate application."
 
-"Did your team create that Task Definition directly, or was it delegated to the CloudOps team to build it?"
+"In that case, could you please share those application materials or the ticket details with me? I'd like to use them as a reference to ensure our ANEMS application follows the exact same format and standards."
 
-"If it was delegated to CloudOps, I noticed their application materials also didn't include detailed Task Definition specs. How did CloudOps manage to create it without those details in the documentation?"
-
-"I'm asking because we'd like to follow the same process for our ANEMS project to avoid any further delays. If there was a specific template or a simplified request process they used, please let us know. Thanks!"
