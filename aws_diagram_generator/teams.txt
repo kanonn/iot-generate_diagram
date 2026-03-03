@@ -33,9 +33,8 @@ Gemini の回答
 
 
 
-Thank you very much for your understanding and for specifically approving this approach for our team. We truly appreciate your support in helping us move forward with this setup.
+One quick follow-up: with this new approval, will we now have the permissions to create Task Definitions, Tasks, and Services ourselves? 
+Or will these resources be automatically provisioned by CloudOps as part of the setup?
 
-We are ready to take action immediately. Could you please guide us on the next steps? Let us know what information or documentation we need to prepare from our side, and we will get started on it right away.
+Just want to clarify the workflow so we can start as soon as possible. Thanks!
 
-Best regards,
-[Your Name]
