@@ -1,3 +1,14 @@
-"Hi Sudharsan, regarding the ECS Fargate deployment, I'd like to clarify the workflow for creating the Task Definition. Will your team handle the creation and management of Task Definitions, or should I be doing that on my end?"
+Subject: Inquiry: Process for Fargate Task Definition Creation - ANEMS Project
 
-"Currently, I noticed that I don't have the permissions to list or assign IAM roles (like iam:ListRoles), which is preventing me from configuring the Task Role and Execution Role in a new Task Definition."
+Hi NDI DevOps Team,
+
+I am a developer from the ANEMS project. CloudOps (Sudharsan) has directed me to your team regarding the creation of ECS Fargate Task Definitions.
+
+Could you please let me know the standard procedure for requesting a new Task Definition? Do you have a specific request form, a Jira project, or a template that I should follow?
+
+We have the ECS Cluster ready and would like to proceed with the service setup.
+
+Looking forward to your guidance.
+
+Best regards,
+[Your Name]
