@@ -29,3 +29,16 @@ aws ecs register-task-definition --cli-input-json file://test.json
 
 "NDI team (Akhil) confirmed we should deploy from this EC2, but I'm currently hit by an Explicit Deny on ECR/ECS actions. 
 It’s a major blocker for the ANEMS deployment. Could you please take a quick look at the email and screenshots when you're back? Thanks!"
+
+
+
+
+Hi Sudharsan, sorry to add more, but I found two other potential blockers that need your confirmation:
+
+1. Security Group (Fargate -> ANEMS):
+I noticed port 23 (for ANEMS) was added to the Inbound rules of the Fargate SG. Since our Fargate task acts as the client initiating the connection to ANEMS, shouldn't this be an Outbound rule instead? Please double-check if the current setup will block our traffic.
+
+2. RDS (PostgreSQL) Permissions:
+I noticed we only have a Read-Only user for the PostgreSQL RDS. We need to create tables and perform initial DB setups for the ANEMS service. How should we handle the DDL/DML operations? Should we be granted a user with higher privileges (e.g., rds_superuser or a dedicated owner role)?
+
+Could you please clarify these points? It would save us a lot of troubleshooting time later. Thanks!
