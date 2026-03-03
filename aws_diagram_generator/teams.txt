@@ -30,12 +30,10 @@ Gemini の回答
 
 你可以这样在 Teams 里发问：
 
-💬 Teams 建议发送内容
-"Actually, I have one more question regarding the [另一个团队的名字] environment for comparison:"
-
-"When that team first received their AWS environment, were the Task Definition, Task, and Service already pre-created by the platform/CloudOps team?"
-
-"If those resources were already there upon handover, it suggests there might be a standard 'default template' being used. Could we apply that same standard setup to the ANEMS project as well? It would help us get the 23-port connectivity test started without further documentation delays."
 
 
-"Could you please share a screenshot of the Task Definition for the [另一个团队的名字] environment? I’d like to use it as a reference to ensure our ANEMS setup aligns with the existing project standards. Thanks!"
+
+I noticed that both the Task Definition and the Service are already active and running there. 
+Could you please clarify how these two resources were provisioned in the first place
+
+Thanks for sharing the JSON. Could you let me know who authored this file originally?
