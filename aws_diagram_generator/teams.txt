@@ -25,3 +25,10 @@
 
 
 aws ecs register-task-definition --cli-input-json file://test.json
+
+
+"Hi Akhil and Sudharsan,"
+
+"Regarding the deployment from EC2 as discussed, I have prepared the test.json and tried to register the Task Definition from the EC2 command line. However, the EC2's Host Role is being explicitly denied for both ecr:GetAuthorizationToken and ecs:RegisterTaskDefinition."
+
+"Could you please coordinate to update the IAM policy for this EC2 instance? Without these permissions, I cannot follow the 'Mode 2' deployment process from the EC2 as suggested."
