@@ -4,3 +4,24 @@
 先方に問い合わせたところ、一部の設定（Task Definition等）はNDIチームの管轄であり、こちらへの権限付与もセキュリティ上不可との回答でした。
 
 そのため、現在はNDIチームへ詳細を確認し、対応を依頼しているところです。進展があり次第、再度共有させていただきます。
+
+
+{
+    "family": "test-task",
+    "containerDefinitions": [
+        {
+            "name": "test-container",
+            "image": "alpine",
+            "cpu": 256,
+            "memory": 512,
+            "essential": true
+        }
+    ],
+    "requiresCompatibilities": ["FARGATE"],
+    "networkMode": "awsvpc",
+    "cpu": "256",
+    "memory": "512"
+}
+
+
+aws ecs register-task-definition --cli-input-json file://test.json
