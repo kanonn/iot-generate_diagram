@@ -33,23 +33,15 @@ Gemini の回答
 
 
 
-Subject: Query regarding AWS Resource Provisioning (Task Definition/Service missing)
+Following up on our previous query, I would like to clarify that our current architecture does not utilize CI/CD. Therefore, we have not engaged the NDI team for any pipeline setup.
 
-Hi [Name/Team],
+Our goal is to have the basic Task Definition, Task, and Service provisioned as part of the environment setup, identical to the TVSO team’s experience (which also didn't involve NDI according to their workflow).
 
-We are currently setting up our environment and noticed a discrepancy in the provisioned resources.
+Since these resources are currently missing from our environment:
 
-We followed the exact same application process as the TVSO team (attached is their original application for reference). Based on our discussion with them, they did not submit any additional tickets or emails, yet their environment was delivered with the Task Definition, Task, and Service already created.
+Could you confirm if there is a way to trigger the creation of these core resources without a CI/CD pipeline?
 
-However, in our case, these resources are missing despite using the same method.
+What is the standard procedure for teams who don't require NDI/CI/CD but need the ECS resources pre-configured?
 
-Did we miss any specific step or checkbox in the initial application?
-
-What would be the best way to resolve this—should we create them manually, or is there a step you can trigger from your side?
-
-Looking forward to your guidance.
-
-
-
-According to the workflow diagram shared by them (attached), their process did not involve the NDI DevOps team
+We look forward to your guidance on the next steps.
 
