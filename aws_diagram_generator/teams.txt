@@ -1,14 +1,14 @@
-Subject: Inquiry: Process for Fargate Task Definition Creation - ANEMS Project
-
 Hi NDI DevOps Team,
 
-I am a developer from the ANEMS project. CloudOps (Sudharsan) has directed me to your team regarding the creation of ECS Fargate Task Definitions.
+I am following up on the status of Ticket #123456, which was submitted for the ECS Fargate setup for the ANEMS project.
 
-Could you please let me know the standard procedure for requesting a new Task Definition? Do you have a specific request form, a Jira project, or a template that I should follow?
+Since the ECS Cluster is already visible, I would like to clarify if the creation of the Task Definition is included in the scope of this ticket?
 
-We have the ECS Cluster ready and would like to proceed with the service setup.
+If yes, could you please let me know if you need any additional container-specific details (such as the Image URL or the required Port 23 for tn3270) to complete the setup?
 
-Looking forward to your guidance.
+If a separate process or template is required specifically for the Task Definition, please advise so I can provide the information accordingly.
+
+Thank you for your assistance.
 
 Best regards,
 [Your Name]
