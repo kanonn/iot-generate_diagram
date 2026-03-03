@@ -23,14 +23,12 @@
     "memory": "512"
 }
 
-"Understood regarding the diagram. Let’s have a separate discussion on the deployment architecture later to align with NDI's requirements."
+"Hi Akhil / Sudharsan,"
 
-"In the meantime, could you please prioritize the other two technical blockers? They are essential for the ANEMS service to even start functioning:"
+"I have a quick follow-up regarding the Task Definition for the [另一个团队的名字] environment."
 
-1. Connection Direction (SG):
-The Fargate SG currently has port 23 in Inbound. Since Fargate is the client connecting to ANEMS, this must be an Outbound rule. Can we fix this to ensure the connection isn't blocked?
+"Did your team create that Task Definition directly, or was it delegated to the CloudOps team to build it?"
 
-2. RDS Write Access:
-We currently only have a Read-Only user. We cannot initialize the database schema or create tables for ANEMS with this. We need a user with Owner/Write permissions for the initial setup.
+"If it was delegated to CloudOps, I noticed their application materials also didn't include detailed Task Definition specs. How did CloudOps manage to create it without those details in the documentation?"
 
-"Could you please confirm these two points? We need these resolved to make any progress on the connectivity test. Thanks!"
+"I'm asking because we'd like to follow the same process for our ANEMS project to avoid any further delays. If there was a specific template or a simplified request process they used, please let us know. Thanks!"
