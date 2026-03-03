@@ -33,14 +33,23 @@ Gemini の回答
 
 
 
-Hi [Name],
+Subject: Query regarding AWS Resource Provisioning (Task Definition/Service missing)
 
-I’m looking into the setup process and had a couple of questions about how your team handled it:
+Hi [Name/Team],
 
-When you first applied, did you only provide the information shown in this screenshot? Also, did the OpsDev team handle the creation of the Task Definition, Task, and Service for you based on that?
+We are currently setting up our environment and noticed a discrepancy in the provisioned resources.
 
-After submitting those details, did you need to send any follow-up emails to OpsDev for additional requests, or was that initial application enough?
+We followed the exact same application process as the TVSO team (attached is their original application for reference). Based on our discussion with them, they did not submit any additional tickets or emails, yet their environment was delivered with the Task Definition, Task, and Service already created.
 
-Thanks for your help!
+However, in our case, these resources are missing despite using the same method.
 
+Did we miss any specific step or checkbox in the initial application?
+
+What would be the best way to resolve this—should we create them manually, or is there a step you can trigger from your side?
+
+Looking forward to your guidance.
+
+
+
+According to the workflow diagram shared by them (attached), their process did not involve the NDI DevOps team
 
