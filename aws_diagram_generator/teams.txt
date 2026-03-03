@@ -1,14 +1,21 @@
-Hi NDI DevOps Team,
+Subject: RE: Regarding ECR Push Permissions - ANEMS Project
 
-I am following up on the status of Ticket #123456, which was submitted for the ECS Fargate setup for the ANEMS project.
+Hi Sudharsan,
 
-Since the ECS Cluster is already visible, I would like to clarify if the creation of the Task Definition is included in the scope of this ticket?
+Thanks for the update on the ECS cluster. However, I am still unable to push the image to ECR.
 
-If yes, could you please let me know if you need any additional container-specific details (such as the Image URL or the required Port 23 for tn3270) to complete the setup?
+I am getting an AccessDeniedException when running the login/push command (see attached screenshot).
 
-If a separate process or template is required specifically for the Task Definition, please advise so I can provide the information accordingly.
+Since CloudOps manages the IAM policies for our EC2 host, could you please fix the permissions so I can successfully push the image to the repository?
 
-Thank you for your assistance.
+Let me know once it's resolved.
 
 Best regards,
 [Your Name]
+
+
+Hi Sudharsan,
+
+The email address you provided for the NDI team seems to be incorrect or invalid. Could you please double-check and provide the correct contact information or a functional mailing list for them?
+
+Thanks.
