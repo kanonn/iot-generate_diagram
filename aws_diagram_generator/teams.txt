@@ -32,12 +32,6 @@ Gemini の回答
 
 
 
+"Thanks a lot, Sudharsan and the CloudOps team, for the confirmation! Great to hear there are no more dependencies. I'll test the deployment from the EC2 command line immediately. Appreciate the help!"
 
-i [Name], thanks again for the support!
-
-Just to confirm the details: with the new environment, we'll have the rights to handle Task Definitions, Tasks, and Services ourselves. This is exactly what we need to fix our current "cannot create Task" issue.
-
-We’ll make sure to operate carefully and keep a close eye on the AWS spending to ensure everything stays within the budget and guidelines.
-
-Ready to get started once you give us the green light!
 
