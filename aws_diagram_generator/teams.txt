@@ -1,2 +1,4 @@
-I’m just following up on the NDI team request for the ECS permissions. Since we are all set with the ECR image, we are eager to proceed with the Fargate task registration and the ANEMS connectivity tests. Is there any update from their side?
+Hi Sudharsan, thank you so much for the quick turnaround and for providing the manual permissions to keep our project on track. We really appreciate your flexibility regarding our timeline!
 
+
+I will proceed with the Task Definition registration and deployment tests immediately. I'll keep you posted on the results. Thanks again!
