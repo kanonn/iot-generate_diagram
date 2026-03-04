@@ -1,4 +1,11 @@
-Hi Sudharsan, thank you so much for the quick turnaround and for providing the manual permissions to keep our project on track. We really appreciate your flexibility regarding our timeline!
-
-
-I will proceed with the Task Definition registration and deployment tests immediately. I'll keep you posted on the results. Thanks again!
+aws ecs run-task \
+    --cluster [你的集群名] \
+    --task-definition [你刚建好的那个Family名] \
+    --launch-type FARGATE \
+    --network-configuration '{
+        "awsvpcConfiguration": {
+            "subnets": ["你的子网ID"],
+            "securityGroups": ["你的安全组ID"],
+            "assignPublicIp": "DISABLED"
+        }
+    }'
