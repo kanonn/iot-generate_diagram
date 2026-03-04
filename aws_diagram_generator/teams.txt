@@ -1,21 +1,17 @@
-{
-    "cluster": "[你的集群名]",
-    "serviceName": "anems-test-service",
-    "taskDefinition": "[你的TaskDefinitionFamily:版本号]",
-    "desiredCount": 0,
-    "launchType": "FARGATE",
-    "networkConfiguration": {
-        "awsvpcConfiguration": {
-            "subnets": ["[你的子网ID]"],
-            "securityGroups": ["[你的安全组ID]"],
-            "assignPublicIp": "DISABLED"
-        }
-    }
-}
+Subject: Status Update: Verification of ECS Task Infrastructure & Next Steps
 
+Hi Sudharsan and the team,
 
-aws ecs create-service --cli-input-json file://create-service.json
+Thank you for your support with the manual permissions today. I’d like to share a quick update on our progress:
 
+Verification of Task Infrastructure: Based on my current testing and verification, I have confirmed that the Task Definition registration and standalone Task execution are now functioning as expected within our Fargate environment. The core infrastructure for launching tasks is now ready.
 
-aws ecs delete-service --cluster [你的集群名] --service anems-test-service
+Service Creation: While we noticed an error during the Service creation test, I have judged this to be a low priority for our immediate connectivity tests. I will consult with my lead to see if we need this specific capability; for now, no further action is required on Service permissions.
 
+Dedicated IAM Roles: To ensure our project adheres to the best security practices, we will need dedicated Task and Execution Roles that are specifically scoped for our S3 and PostgreSQL requirements. I am currently drafting the precise IAM policy definitions for these.
+
+Timeline: It will take me a bit more time to finalize the "least-privilege" permission list to ensure total security. I expect to share the JSON definitions with you tomorrow for your review and creation.
+
+Thank you again for the great support in getting us to this stage. Have a great evening!
+
+Best regards,
