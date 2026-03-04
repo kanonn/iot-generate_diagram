@@ -1,11 +1,21 @@
-aws ecs run-task \
-    --cluster [你的集群名] \
-    --task-definition [你刚建好的那个Family名] \
-    --launch-type FARGATE \
-    --network-configuration '{
+{
+    "cluster": "你的集群名称",
+    "taskDefinition": "你刚才注册成功的Family名称:版本号",
+    "launchType": "FARGATE",
+    "count": 1,
+    "platformVersion": "LATEST",
+    "networkConfiguration": {
         "awsvpcConfiguration": {
-            "subnets": ["你的子网ID"],
-            "securityGroups": ["你的安全组ID"],
+            "subnets": [
+                "subnet-xxxxxx"
+            ],
+            "securityGroups": [
+                "sg-xxxxxx"
+            ],
             "assignPublicIp": "DISABLED"
         }
-    }'
+    }
+}
+
+
+aws ecs run-task --cli-input-json file://run-task.json
