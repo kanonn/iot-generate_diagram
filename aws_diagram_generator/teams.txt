@@ -1,41 +1,21 @@
 {
-    "cluster": "你的集群名称",
-    "taskDefinition": "你刚才注册成功的Family名称:版本号",
+    "cluster": "[你的集群名]",
+    "serviceName": "anems-test-service",
+    "taskDefinition": "[你的TaskDefinitionFamily:版本号]",
+    "desiredCount": 0,
     "launchType": "FARGATE",
-    "count": 1,
-    "platformVersion": "LATEST",
     "networkConfiguration": {
         "awsvpcConfiguration": {
-            "subnets": [
-                "subnet-xxxxxx"
-            ],
-            "securityGroups": [
-                "sg-xxxxxx"
-            ],
+            "subnets": ["[你的子网ID]"],
+            "securityGroups": ["[你的安全组ID]"],
             "assignPublicIp": "DISABLED"
         }
     }
 }
 
 
-aws ecs run-task --cli-input-json file://run-task.json
+aws ecs create-service --cli-input-json file://create-service.json
 
 
-aws ecs describe-tasks --cluster [你的集群名] --tasks [你的TaskArn] --query 'tasks[0].lastStatus'
+aws ecs delete-service --cluster [你的集群名] --service anems-test-service
 
-# 列出指定集群中所有正在运行的任务
-aws ecs list-tasks --cluster [你的集群名]
-
-
-"overrides": {
-    "containerOverrides": [
-        {
-            "name": "你的容器名字",
-            "command": [
-                "sh", 
-                "-c", 
-                "echo 'Testing port 23...'; nc -zv -w 5 [ANEMS的IP地址] 23"
-            ]
-        }
-    ]
-}
