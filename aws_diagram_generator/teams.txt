@@ -19,3 +19,23 @@
 
 
 aws ecs run-task --cli-input-json file://run-task.json
+
+
+aws ecs describe-tasks --cluster [你的集群名] --tasks [你的TaskArn] --query 'tasks[0].lastStatus'
+
+# 列出指定集群中所有正在运行的任务
+aws ecs list-tasks --cluster [你的集群名]
+
+
+"overrides": {
+    "containerOverrides": [
+        {
+            "name": "你的容器名字",
+            "command": [
+                "sh", 
+                "-c", 
+                "echo 'Testing port 23...'; nc -zv -w 5 [ANEMS的IP地址] 23"
+            ]
+        }
+    ]
+}
