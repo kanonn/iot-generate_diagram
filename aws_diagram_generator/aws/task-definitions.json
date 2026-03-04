@@ -1,0 +1,25 @@
+{
+    "family": "dproto-qa-app",
+    "networkMode": "awsvpc",
+    "containerDefinitions": [
+        {
+            "name": "tn3270-api",
+            "image": "733155003398.dkr.ecr.ap-northeast-1.amazonaws.com/dproto/qa/app:latest",
+            "essential": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/dproto-qa-app",
+                    "awslogs-region": "ap-northeast-1",
+                    "awslogs-stream-prefix": "dproto-qa-app",
+					"awslogs-create-group": "true"
+                }
+            }
+        }
+    ],
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::733155003398:role/dproto-qa-execution-role",
+    "taskRoleArn": "arn:aws:iam::733155003398:role/dproto-qa-task-role"
+}

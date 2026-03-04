@@ -1,0 +1,18 @@
+{
+    "cluster": "dproto-qa-app",
+    "taskDefinition": "dproto-qa-app:6",
+    "launchType": "FARGATE",
+    "count": 1,
+    "platformVersion": "LATEST",
+    "networkConfiguration": {
+        "awsvpcConfiguration": {
+            "subnets": [
+                "subnet-0dcf24a9aaa820de2"
+            ],
+            "securityGroups": [
+                "sg-0df6d3add80cfe481"
+            ],
+            "assignPublicIp": "ENABLED"
+        }
+    }
+}
