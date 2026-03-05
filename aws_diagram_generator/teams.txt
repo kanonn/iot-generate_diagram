@@ -1,13 +1,23 @@
-Hope you are doing well.
+Subject: Project Update: IAM Roles and S3 Access Verification
 
-I have prepared the IAM policy JSON files for our new React application which will be deployed on ECS Fargate. Attached are the two required roles:
+Hi Sudharsan,
 
-Execution Role: Includes permissions for ECR image pulling and CloudWatch logging.
+I’d like to give you a quick update. We have confirmed that the IAM roles you provided are working perfectly, and the S3 access has been successfully verified.
 
-Task Role: Minimal permissions for the application runtime.
+There are no other issues at this stage. We will now move forward with various internal tests within the application.
 
-Could you please review these policies and help us create the roles in the [这里填环境，比如 QA 或 Development] environment?
+We truly appreciate your long-term support and patience throughout this process. It is thanks to your expertise and quick response that we have been able to progress so smoothly. Thank you again for all your help!
 
-Please let me know if any adjustments are needed based on our security standards. Thanks for your help!
 
-Best regards,
+お疲れ様です。
+現在の進捗状況を報告いたします。
+
+インドのエンジニアチームと連携し、保留となっていた権限周りの設定が完了いたしました。
+詳細は以下の通りです。
+
+IAMロールの検証： 提供されたロールにて、正常な動作を確認しました。
+
+S3アクセス： 接続テストを実施し、正常にアクセスできることを確認済みです。
+
+現在、特筆すべき問題点はございません。
+これを受け、本日からアプリケーション内での各種テスト工程に移行いたします。
