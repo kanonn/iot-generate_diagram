@@ -1,23 +1,10 @@
-Subject: Project Update: IAM Roles and S3 Access Verification
+Hi Vinay,
 
-Hi Sudharsan,
+I would like to clarify a small misunderstanding regarding your previous email. Initially, I thought the survey was related to "project fees/costs" and should be handled by my supervisor.
 
-I’d like to give you a quick update. We have confirmed that the IAM roles you provided are working perfectly, and the S3 access has been successfully verified.
+However, after reviewing the content again, I realized it was the satisfaction survey for the AWS environment deployment which I am personally involved in.
 
-There are no other issues at this stage. We will now move forward with various internal tests within the application.
+I have just completed and submitted the survey. Thank you for the support on our project!
 
-We truly appreciate your long-term support and patience throughout this process. It is thanks to your expertise and quick response that we have been able to progress so smoothly. Thank you again for all your help!
-
-
-お疲れ様です。
-現在の進捗状況を報告いたします。
-
-インドのエンジニアチームと連携し、保留となっていた権限周りの設定が完了いたしました。
-詳細は以下の通りです。
-
-IAMロールの検証： 提供されたロールにて、正常な動作を確認しました。
-
-S3アクセス： 接続テストを実施し、正常にアクセスできることを確認済みです。
-
-現在、特筆すべき問題点はございません。
-これを受け、本日からアプリケーション内での各種テスト工程に移行いたします。
+Best regards,
+[Your Name]
