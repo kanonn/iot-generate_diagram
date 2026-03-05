@@ -1,10 +1,15 @@
-Hi Vinay,
+Positive Feedback for AWS Support - IB2 - DPROTO (QA)
 
-I would like to clarify a small misunderstanding regarding your previous email. Initially, I thought the survey was related to "project fees/costs" and should be handled by my supervisor.
+Hi Kusuma and Sudharsan,
 
-However, after reviewing the content again, I realized it was the satisfaction survey for the AWS environment deployment which I am personally involved in.
+Hope this email finds you well.
 
-I have just completed and submitted the survey. Thank you for the support on our project!
+I am writing to express my sincere appreciation for your exceptional support regarding the AWS environment setup for the IB2 - DPROTO (QA) project. As of today, we have successfully verified the ECS Fargate tasks, IAM roles, and S3 access. Everything is running smoothly, and we are now moving forward with our internal application testing.
+
+Given the highly aggressive timeline of this project, your timely intervention was instrumental. I would like to extend a special thanks to Kusuma for the prompt guidance and for providing the necessary authorizations to bypass the blockers. Your swift decision-making was crucial to keeping our critical project on schedule.
+
+I also want to give a special shoutout to Sudharsan for his dedicated technical assistance. Navigating the complex IAM permissions and ECS configurations was challenging, but your quick responses, patience, and highly efficient hands-on execution made the process incredibly smooth. I was particularly impressed by your willingness to go the extra mile, including providing extended support late into the evening to ensure our critical issues were resolved without delay. Thanks to your hard work, we were able to meet our strict deadlines.
+
+It has been a great pleasure working with both of you. We truly value your dedication and the strong teamwork you have shown. We look forward to continuing our successful collaboration with the ITDA team.
 
 Best regards,
-[Your Name]
