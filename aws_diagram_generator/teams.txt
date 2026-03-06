@@ -1,21 +1,40 @@
-Appreciation for Outstanding AWS Support - IB2 - DPROTO (QA)
+件名：ANEMSサーバ(10.2.90.54:23)への接続疎通確認の依頼について
 
+[对方名字]-san
+お疲れ様です。IB2プロジェクトの[你的名字]です。
 
-Positive Feedback for AWS Support - IB2 - DPROTO (QA)
+現在、AWS Fargate環境からANEMSサーバへの接続（Port 23）をテストしていますが、Timeoutが発生し接続できない状況です。
 
-Hi Kusuma and Sudharsan,
+こちら側で一通りのネットワーク調査を完了し、Fargate側の設定には問題がないことを確認しました。
+お手数ですが、ANEMS側（受信側）の設定に問題がないか、ご確認いただけないでしょうか。
 
-Hope this email finds you well.
+1. 現在の調査状況（エビデンス添付）
+以下の通り、特定の環境からのみ接続が拒否されている状態です。
 
-I am writing to express my sincere appreciation for your exceptional support regarding the AWS environment setup for the IB2 - DPROTO (QA) project. As of today, we have successfully verified the ECS Fargate tasks, IAM roles, and S3 access. Everything is running smoothly, and we are now moving forward with our internal application testing.
+ローカルPC (10.12.181.79)：接続成功（OK）
 
-Given the highly aggressive timeline of this project, your timely intervention was instrumental. I would like to extend a special thanks to Kusuma for the prompt guidance and for providing the necessary authorizations to bypass the blockers. Your swift decision-making was crucial to keeping our critical project on schedule.
+Fargate (10.2.149.25)：タイムアウト（NG）
 
-I also want to give a special shoutout to Sudharsan for his dedicated technical assistance. Navigating the complex IAM permissions and ECS configurations was challenging, but your quick responses, patience, and highly efficient hands-on execution made the process incredibly smooth. I was particularly impressed by your willingness to go the extra mile, including providing extended support late into the evening to ensure our critical issues were resolved without delay. Thanks to your hard work, we were able to meet our strict deadlines.
+2. こちら側（Fargate側）の確認済み設定
+以下の設定を再確認しましたが、すべて正常です（※添付のスクリーンショットもご参照ください）。
 
-It has been a great pleasure working with both of you. We truly value your dedication and the strong teamwork you have shown. We look forward to continuing our successful collaboration with the ITDA team.
+Security Group: 10.2.90.0/23 への Port 23 出向（Outbound）を許可済み。
 
-Best regards,
+Route Table: 10.0.0.0/8 が Transit Gateway (TGW) 経由で正しくルーティング済み。
 
+Network ACL: インバウンド・アウトバウンド共に全開放（Allow All）の状態。
 
-$t = New-Object System.Net.Sockets.TcpClient; $t.Connect("10.2.90.54", 23); if($t.Connected) { "Success" } else { "Failed" }; $t.Close()
+3. 確認をお願いしたい事項
+ANEMS側のAWS環境（受信側）にて、以下の3点をご確認いただけますでしょうか。
+
+Security Group (Inbound): 弊社のFargateサブネット 10.2.144.0/20 からの Port 23 アクセスが許可されているか。
+
+Route Table (Return Path): 10.2.144.0/20 への戻りパケットが TGW 経由で正しく設定されているか。
+
+Network ACL: 通信をブロックする設定がないか。
+
+補足（理由）：
+Fargateは動的IP（Ephemeral IP）を使用するため、個別のIPではなくサブネット全体（10.2.144.0/20）をホワイトリストに追加いただく必要があります。
+
+お忙しいところ恐縮ですが、ご確認のほどよろしくお願いいたします。
+
