@@ -16,3 +16,6 @@ I also want to give a special shoutout to Sudharsan for his dedicated technical 
 It has been a great pleasure working with both of you. We truly value your dedication and the strong teamwork you have shown. We look forward to continuing our successful collaboration with the ITDA team.
 
 Best regards,
+
+
+$t = New-Object System.Net.Sockets.TcpClient; $t.Connect("10.2.90.54", 23); if($t.Connected) { "Success" } else { "Failed" }; $t.Close()

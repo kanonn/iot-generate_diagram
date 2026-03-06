@@ -20,3 +20,6 @@ Gemini の回答
 CIDRの情報、大変助かりました。こちらで環境構築の方を進めてまいります。
 
 また何かありましたら、ご相談させてください。よろしくお願いいたします。
+
+
+$t = New-Object System.Net.Sockets.TcpClient; $t.Connect("10.2.90.54", 23); if($t.Connected) { "Success" } else { "Failed" }; $t.Close()
