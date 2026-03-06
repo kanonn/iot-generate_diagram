@@ -1,67 +1,25 @@
-件名：ANEMSサーバ(10.2.90.54:23)への接続疎通確認の依頼について
+📧 咨询邮件/消息模板 (日文)
+件名：Re: ANEMSサーバ(10.2.90.54:23)への接続疎通確認の依頼について
 
 [对方名字]-san
 お疲れ様です。IB2プロジェクトの[你的名字]です。
 
-現在、AWS Fargate環境からANEMSサーバへの接続（Port 23）をテストしていますが、Timeoutが発生し接続できない状況です。
+早速ご確認いただき、誠にありがとうございます！
+やはりセキュリティグループ（SG）での制限が原因だったのですね。原因が特定できて大変助かりました。
 
-こちら側で一通りのネットワーク調査を完了し、Fargate側の設定には問題がないことを確認しました。
-お手数ですが、ANEMS側（受信側）の設定に問題がないか、ご確認いただけないでしょうか。
+つきましては、ANEMS側のSGに弊社のサブネット（10.2.144.0/20）を追加いただくにあたり、どのような申請手続きが必要でしょうか。
 
-1. 現在の調査状況（エビデンス添付）
-以下の通り、特定の環境からのみ接続が拒否されている状態です。
+もしよろしければ、以下の点についてご教示いただけますと幸いです。
 
-ローカルPC (10.12.181.79)：接続成功（OK）
+申請の種類：どのようなワークフロー（ネットワーク利用申請等）を上げるべきでしょうか。
 
-Fargate (10.2.149.25)：タイムアウト（NG）
+申請先/承認者：どこの部署、あるいはどなた宛に申請を行うのがよろしいでしょうか。
 
-2. こちら側（Fargate側）の確認済み設定
-以下の設定を再確認しましたが、すべて正常です（※添付のスクリーンショットもご参照ください）。
+こちらで速やかに申請手続きを進めたいと考えております。
+お忙しいところ恐縮ですが、お手すきの際にご教示いただけますでしょうか。
 
-Security Group: 10.2.90.0/23 への Port 23 出向（Outbound）を許可済み。
-
-Route Table: 10.0.0.0/8 が Transit Gateway (TGW) 経由で正しくルーティング済み。
-
-Network ACL: インバウンド・アウトバウンド共に全開放（Allow All）の状態。
-
-3. 確認をお願いしたい事項
-ANEMS側のAWS環境（受信側）にて、以下の3点をご確認いただけますでしょうか。
-
-Security Group (Inbound): 弊社のFargateサブネット 10.2.144.0/20 からの Port 23 アクセスが許可されているか。
-
-Route Table (Return Path): 10.2.144.0/20 への戻りパケットが TGW 経由で正しく設定されているか。
-
-Network ACL: 通信をブロックする設定がないか。
-
-補足（理由）：
-Fargateは動的IP（Ephemeral IP）を使用するため、個別のIPではなくサブネット全体（10.2.144.0/20）をホワイトリストに追加いただく必要があります。
-
-お忙しいところ恐縮ですが、ご確認のほどよろしくお願いいたします。
+よろしくお願いいたします。
 
 
 
--------------------
-Hi @Sudharsan, hope you are having a productive Friday!
 
-I have a few quick updates and a non-urgent request:
-
-1. Appreciation Email
-I sent out the appreciation email to the team earlier. Since I’m relatively new to this process, I hope the content was appropriate and helpful for you and the team. Please let me know if everything looked okay!
-
-2. ANEMS Connectivity (10.2.90.54:23)
-We are currently testing the app, but still hitting a timeout with the ANEMS connection. I’ve done a deep dive into our AWS configuration (Security Groups, Route Tables, and NACL), and everything on our side looks correct.
-I am now coordinating directly with the Model1 team (the server owners) to check their inbound rules and routing. No action is needed from your side regarding this issue for now. I will keep you posted if we find anything related to the core infrastructure.
-
-3. RDS PostgreSQL Access (Non-Urgent)
-On a separate note, we have a question regarding the PostgreSQL RDS. This is not urgent, so feel free to get back to us whenever you have time (within the next week or so is perfectly fine).
-Currently, we only have a read-only user. To set up our business data, we need the ability to perform maintenance tasks, such as:
-
-Creating/Deleting tables
-
-Managing stored procedures
-
-General data maintenance (DML/DDL)
-
-Could you please provide us with a user that has these maintenance permissions? Or, if there is a specific standard procedure/tool we should use to write data to the RDS, please let us know the best way to proceed.
-
-Thanks again for your continued support!
