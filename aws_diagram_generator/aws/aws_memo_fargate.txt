@@ -1,0 +1,83 @@
+sudo yum install -y unzip && \
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+unzip -o awscliv2.zip && \
+sudo ./aws/install --update && \
+aws --version
+
+aws sts get-caller-identity
+
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+sudo yum install -y docker-ce docker-ce-cli containerd.io
+
+sudo systemctl start docker
+sudo systemctl enable docker
+
+sudo usermod -aG docker $USER
+
+
+
+===============================================================
+# 1. 拉取测试镜像
+docker pull alpine
+
+# 2. 给它打上你 ECR 仓库的标签
+# 注意：把 "test-repo" 换成你在控制台看到的实际仓库名（比如 dproto-qa-repo）
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGION="ap-northeast-1"
+# 验证一下是否拿到了 ID
+echo $AWS_ACCOUNT_ID
+REPO_NAME="dproto/qa/app" 
+docker tag alpine:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:latest
+
+aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin 733155003398.dkr.ecr.ap-northeast-1.amazonaws.com
+docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:latest
+
+===============================================================
+--s3
+===============================================================
+docker tag s3-test:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:latest
+===============================================================
+
+# 方案 A：加参数（最专业）
+sudo systemctl status docker --no-pager
+
+# 方案 B：用管道符（最常用）
+sudo systemctl status docker | cat
+
+===============================================================
+
+aws iam create-role \
+  --role-name dproto-qa-task-role \
+  --assume-role-policy-document file://~/task-role-trust.json
+  
+aws iam put-role-policy \
+  --role-name dproto-qa-task-role \
+  --policy-name dproto-qa-task-policy \
+  --policy-document file://~/task-role-policy.json
+  
+aws iam create-role \
+  --role-name dproto-qa-execution-role \
+  --assume-role-policy-document file://~/task-role-trust.json
+  
+aws iam put-role-policy \
+  --role-name dproto-qa-execution-role \
+  --policy-name dproto-qa-execution-policy \
+  --policy-document file://~/execution-role-policy.json
+
+  
+# 确认两个 Role 都创建成功
+aws iam get-role --role-name dproto-qa-task-role
+aws iam get-role --role-name dproto-qa-execution-role
+
+aws ecs register-task-definition --cli-input-json file://task-definitions.json
+
+aws ecs run-task --cli-input-json file://run-task.json
+aws ecs stop-task --cluster dproto-qa-app --task arn:aws:ecs:ap-northeast-1:733155003398:task/dproto-qa-app/b2095158d6b6442fb7dc8c1644c023c1
+aws ecs describe-tasks --cluster dproto-qa-app --task arn:aws:ecs:ap-northeast-1:733155003398:task/dproto-qa-app/823f58c20f8546f8ac96bee736cb4499
+dproto-qa-app
+
+
+
+aws ecs run-task --cli-input-json file://../run-task.json

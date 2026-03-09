@@ -1,2 +1,5 @@
 curl -H "X-Session-Id: f101372a-2d5a-4595-b8a6-76450a687736" http://localhost:8080/api/tn3270/screen
 
+
+
+
