@@ -1,40 +1,13 @@
-curl -H "X-Session-Id: f101372a-2d5a-4595-b8a6-76450a687736" http://localhost:8080/api/tn3270/screen
+お疲れ様です。IB2プロジェクトの[您的名字]です。
 
+早速のご回答、誠にありがとうございます。
+SG申請の手順について承知いたしました。
 
+一点ご相談なのですが、本ANEMSサーバは私が当初申請したものではないため、手元に「リソース申請書」の原本（Excel）がございません。
 
+もし大岡様の方で、直近の申請書ファイルを保管されていましたら、コピーを共有いただくことは可能でしょうか。
 
-Ticket Title (Subject)
-Request for Elevated RDS PostgreSQL Permissions (Migration/Admin User) - IB2 Project
+万が一、原本の入手が難しい場合、別途新規で申請書を作成する等の代替方法はございますでしょうか。
+お忙しいところ恐縮ですが、アドバイスをいただけますと幸いです。
 
-Ticket Description (Body)
-Hi Team,
-
-We are currently working on the IB2 project and require a PostgreSQL user with elevated privileges for our RDS instance.
-
-Current Status:
-At present, we only have access via a read-only user, which is insufficient for our upcoming data setup and testing phases.
-
-Request Details:
-We need a Migration/Maintenance user (or an upgrade to our existing user permissions) that allows us to perform the following tasks:
-
-DDL Operations: Creating, altering, and dropping tables/indexes.
-
-DML Operations: Inserting, updating, and deleting business data.
-
-Schema Management: Creating and maintaining stored procedures and functions.
-
-Instance Information:
-
-Project: IB2
-
-RDS Instance Identifier: [Insert your RDS Instance Name here]
-
-Environment: [e.g., QA / Development]
-
-Note:
-This request has been aligned with Sudharsan and Kusuma, who recommended raising this inquiry ticket to provide us with the necessary "migration user" access.
-
-This is not an emergency request, but we would appreciate it if these permissions could be provisioned within the next few business days to keep our schedule on track.
-
-Thanks,
-[Your Name]
+よろしくお願いいたします。
