@@ -1,25 +1,30 @@
-Gemini の回答
-看来这位加藤先生（KATOU-san）的回复语气变得比较严谨，甚至带有一点“按章办事”的距离感。他在邮件中特别询问了是否得到了 IB2-AA 的许可，并提到他们并没有收到关于 D-PROTO Modernization 的正式协作请求。
+public static void main(String[] args) {
+    System.out.println("====== JVM 编码底牌大揭秘 ======");
+    System.out.println("1. 默认字符集 (Charset.defaultCharset): " + java.nio.charset.Charset.defaultCharset());
+    System.out.println("2. 文件/流编码 (file.encoding): " + System.getProperty("file.encoding"));
+    System.out.println("3. 控制台输出编码 (sun.stdout.encoding): " + System.getProperty("sun.stdout.encoding"));
+    System.out.println("================================");
+    
+    System.setProperty("java.net.preferIPv4Stack", "true");
+    SpringApplication.run(Tn3270ApiApplication.class, args);
+}
 
-在这种情况下，回复时一定要表现出你正在遵循正式流程，并且已经找到了正确的对口人（高川团队），这样可以消除他的疑虑。
 
-📧 邮件草稿（日文）
-件名：Re: リソース申請書（Excel）の原本について
+com.github.filipesimoes.j3270.TerminalCommander
 
-加藤様
 
-お疲れ様です。IB2プロジェクトの[您的名字]です。
-ご返信いただきありがとうございます。
 
-ご指摘いただいたIB2-AA様への確認の件ですが、現時点ではまだ返信をいただけていない状況です。
+public void connect() throws UnknownHostException, IOException, TimeoutException {
+    try {
+      waitForSocket();
+    } catch (InterruptedException e) {
+      throw new TimeoutException("Script socket connection timed out.");
+    }
+    
+    // 修改为 UTF-8，彻底打通任督二脉！
+    writer = new OutputStreamWriter(socket.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8);
+    reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
+  }
 
-一方で、並行してModel 1のAWS環境運用チームへ相談したところ、ANEMSチームの連絡先（リーダーの高川様）をご教示いただくことができました。
-現在、高川様側のチームと直接コンタクトを取り、申請書の原本の入手および今後の申請フローについて相談を進めております。
 
-進捗がございましたら、改めて共有させていただきます。
-
-加藤様には、これまで多大なるサポートをいただき、心より感謝しております。
-今後、手続きの中でまたご相談させていただくこともあるかと存じますが、引き続きお力添えをいただけますと幸いです。
-
-よろしくお願いいたします。
 
