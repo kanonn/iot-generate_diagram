@@ -1,30 +1,28 @@
-public static void main(String[] args) {
-    System.out.println("====== JVM 编码底牌大揭秘 ======");
-    System.out.println("1. 默认字符集 (Charset.defaultCharset): " + java.nio.charset.Charset.defaultCharset());
-    System.out.println("2. 文件/流编码 (file.encoding): " + System.getProperty("file.encoding"));
-    System.out.println("3. 控制台输出编码 (sun.stdout.encoding): " + System.getProperty("sun.stdout.encoding"));
-    System.out.println("================================");
-    
-    System.setProperty("java.net.preferIPv4Stack", "true");
-    SpringApplication.run(Tn3270ApiApplication.class, args);
+{
+    "cluster": "YOUR_CLUSTER_NAME",
+    "serviceName": "YOUR_SERVICE_NAME",
+    "taskDefinition": "YOUR_TASK_DEFINITION_FAMILY:REVISION",
+    "loadBalancers": [
+        {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:region:account-id:targetgroup/target-group-name/id",
+            "containerName": "YOUR_CONTAINER_NAME",
+            "containerPort": 8080
+        }
+    ],
+    "desiredCount": 1,
+    "launchType": "FARGATE",
+    "platformVersion": "LATEST",
+    "networkConfiguration": {
+        "awsvpcConfiguration": {
+            "subnets": [
+                "subnet-xxxxxx",
+                "subnet-yyyyyy"
+            ],
+            "securityGroups": [
+                "sg-zzzzzz"
+            ],
+            "assignPublicIp": "DISABLED"
+        }
+    },
+    "healthCheckGracePeriodSeconds": 60
 }
-
-
-com.github.filipesimoes.j3270.TerminalCommander
-
-
-
-public void connect() throws UnknownHostException, IOException, TimeoutException {
-    try {
-      waitForSocket();
-    } catch (InterruptedException e) {
-      throw new TimeoutException("Script socket connection timed out.");
-    }
-    
-    // 修改为 UTF-8，彻底打通任督二脉！
-    writer = new OutputStreamWriter(socket.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8);
-    reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
-  }
-
-
-
