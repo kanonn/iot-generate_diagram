@@ -1,28 +1,6 @@
-{
-    "cluster": "YOUR_CLUSTER_NAME",
-    "serviceName": "YOUR_SERVICE_NAME",
-    "taskDefinition": "YOUR_TASK_DEFINITION_FAMILY:REVISION",
-    "loadBalancers": [
-        {
-            "targetGroupArn": "arn:aws:elasticloadbalancing:region:account-id:targetgroup/target-group-name/id",
-            "containerName": "YOUR_CONTAINER_NAME",
-            "containerPort": 8080
-        }
-    ],
-    "desiredCount": 1,
-    "launchType": "FARGATE",
-    "platformVersion": "LATEST",
-    "networkConfiguration": {
-        "awsvpcConfiguration": {
-            "subnets": [
-                "subnet-xxxxxx",
-                "subnet-yyyyyy"
-            ],
-            "securityGroups": [
-                "sg-zzzzzz"
-            ],
-            "assignPublicIp": "DISABLED"
-        }
-    },
-    "healthCheckGracePeriodSeconds": 60
-}
+# 使用 sh -c 来执行复合命令
+# 1. 后台启动 SpringBoot (&)
+# 2. 睡眠 30 秒等待应用完全启动 (sleep 30)
+# 3. 执行 curl 并把结果打印到控制台 (即日志)
+# 4. 使用 wait 命令防止容器在 curl 结束后退出
+CMD sh -c "java -jar /app.jar & sleep 30; echo '>>> Starting Self-Test Curl...'; curl -v http://localhost:8080/你的API路径; wait"
