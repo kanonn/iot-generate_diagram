@@ -1,7 +1,7 @@
-Great news! I just ran the task again, and the SES email sending was successful!
+Hi Sudharsan,
 
-The emails have been delivered correctly to the recipients. Thank you so much for your persistent support and for updating the IAM policy today. It’s working perfectly now.
+Thank you for the update. Since we are in the middle of a critical QA testing phase, it is quite urgent for us to have the ECS Service creation and management permissions.
 
-As we discussed, since SES is now fully functional, we can proceed without SNS. There is no need for further action regarding the SNS permissions or DFD updates.
+If it's possible for you to provide the required permissions manually in the meantime, that would be greatly appreciated! This will allow us to proceed with our service deployment tests immediately without waiting for the product-level update.
 
-Thanks again, and have a great weekend!
+Please let me know once the manual permissions are active. Thank you for your proactive support!
