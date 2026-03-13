@@ -1,18 +1,29 @@
-加藤様
+Hi team,
 
-お疲れ様です。[你的名字]です。
+I just tested SES, but it failed because our task role lacks the ses:SendEmail permission. Also, SES might require domain verification and sandbox removal, which takes time.
 
-この度は、早急にご調査およびDBデータの修復をご対応いただき、誠にありがとうございます。
-おかげさまで無事に「受付」画面でデータ一覧が表示されるようになり、当方のテストを再開することができました。
+To keep things simple and move forward quickly, let's just use the existing SNS Topic (arn:aws:sns:ap-northeast-1:172761649922:dproto-qa) that you already created.
 
-また、今回のエラーについて、「QAテスト時の操作・データに起因するDBの不具合」であったとのこと、承知いたしました。
-現在、私たちも連携のQAテストを日々実施している最中であるため、今後のテストで再び同様の不具合を発生させてしまわないか懸念しております。
+Could you please help with these two final steps?
 
-つきましては、今後のテストを安全に進めるため、「このようなデータ入力・操作を行うとエラーになりやすい」といった、私たちが避けるべき操作や注意点がございましたら、お教えいただけないでしょうか。
+1. Subscribe our emails to the SNS Topic:
+Please manually add our 3 email addresses to this SNS Topic subscription. (If they are already added but pending, please resend the confirmation emails, and we will click "Confirm" right away).
 
-（※もし今回の原因が私たちのテスト操作であった場合は、多大なお手数をおかけしてしまい大変申し訳ございませんでした。）
+2. Grant Publish permission:
+My code is now updated to only publish messages (no subscription logic). Could you please add just the sns:Publish permission to our ECS task role (dproto-qa-ecs-task-ap-northeast-1)?
 
-お忙しい中ご対応いただき、本当に助かりました。
-引き続き注意してテストを進めてまいりますので、今後ともよろしくお願いいたします。
+JSON
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "sns:Publish",
+            "Resource": "arn:aws:sns:ap-northeast-1:172761649922:dproto-qa"
+        }
+    ]
+}
+Thank you! Let me know once the policy is attached so I can run the final test.
 
-[你的签名]
+
+
