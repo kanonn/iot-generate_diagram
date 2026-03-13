@@ -1,29 +1,11 @@
-Hi team,
+Hi Sudharsan,
 
-I just tested SES, but it failed because our task role lacks the ses:SendEmail permission. Also, SES might require domain verification and sandbox removal, which takes time.
+Thanks for the update. I've just tested the SES integration, but I'm still encountering the following authorization error:
 
-To keep things simple and move forward quickly, let's just use the existing SNS Topic (arn:aws:sns:ap-northeast-1:172761649922:dproto-qa) that you already created.
+User: arn:aws:sts::733155003398:assumed-role/dproto-qa-task-role/xxx is not authorized to perform: ses:SendEmail on resource: ...
 
-Could you please help with these two final steps?
+It seems the permission hasn't taken effect for the application yet. Could you please double-check if the policy is attached to the "Task Role" (dproto-qa-task-role), not the "Execution Role"?
 
-1. Subscribe our emails to the SNS Topic:
-Please manually add our 3 email addresses to this SNS Topic subscription. (If they are already added but pending, please resend the confirmation emails, and we will click "Confirm" right away).
+Also, if we can successfully test and verify the email functionality via SES, we will no longer need to use SNS. This way, we can skip the DFD update process for SNS and save everyone's time.
 
-2. Grant Publish permission:
-My code is now updated to only publish messages (no subscription logic). Could you please add just the sns:Publish permission to our ECS task role (dproto-qa-ecs-task-ap-northeast-1)?
-
-JSON
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": "sns:Publish",
-            "Resource": "arn:aws:sns:ap-northeast-1:172761649922:dproto-qa"
-        }
-    ]
-}
-Thank you! Let me know once the policy is attached so I can run the final test.
-
-
-
+Thanks again for your help!
