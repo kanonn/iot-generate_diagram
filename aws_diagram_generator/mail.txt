@@ -1,18 +1,7 @@
-Hi Sudharsan,
+Great news! I just ran the task again, and the SES email sending was successful!
 
-I’ve tried running the task twice after your update, but unfortunately, the same ses:SendEmail authorization error persists.
+The emails have been delivered correctly to the recipients. Thank you so much for your persistent support and for updating the IAM policy today. It’s working perfectly now.
 
-As I analyzed the logs, the error specifically mentions the domain resource: arn:aws:ses:ap-northeast-1:172761649922:identity/mail.nissan.co.jp.
+As we discussed, since SES is now fully functional, we can proceed without SNS. There is no need for further action regarding the SNS permissions or DFD updates.
 
-Since we cannot use *, could you please update the IAM policy for the task role (dproto-qa-ecs-task-ap-northeast-1) to explicitly allow the following resources? This should cover both the domain and our specific test emails:
-
-JSON
-"Resource": [
-    "arn:aws:ses:ap-northeast-1:172761649922:identity/mail.nissan.co.jp",
-    "arn:aws:ses:ap-northeast-1:172761649922:identity/yupeng-bie@mail.nissan.co.jp",
-    "arn:aws:ses:ap-northeast-1:172761649922:identity/[同事邮箱2]",
-    "arn:aws:ses:ap-northeast-1:172761649922:identity/[同事邮箱3]"
-]
-I suspect that without including the domain identity (mail.nissan.co.jp) in the resource list, IAM will keep denying the request even if the individual emails are verified.
-
-Could you please help update this? Once done, I’ll run the final test. Thanks!
+Thanks again, and have a great weekend!
