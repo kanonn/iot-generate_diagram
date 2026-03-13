@@ -1,31 +1,18 @@
 Hi Sudharsan,
 
-Confirmed, the Task Role is indeed dproto-qa-ecs-task-ap-northeast-1.
+I’ve tried running the task twice after your update, but unfortunately, the same ses:SendEmail authorization error persists.
 
-However, the error persists because of a Resource mismatch in the IAM policy. The logs show that the request is being evaluated against the domain identity. To fix this, please update the IAM policy for this role as follows:
+As I analyzed the logs, the error specifically mentions the domain resource: arn:aws:ses:ap-northeast-1:172761649922:identity/mail.nissan.co.jp.
 
-Option 1 (Quickest for testing):
-Change the Resource to "*" for the ses:SendEmail action.
-
-Option 2 (Specific Resource):
-If you must restrict it, please ensure the Domain Identity is included in the Resource list:
-"Resource": "arn:aws:ses:ap-northeast-1:172761649922:identity/mail.nissan.co.jp"
-
-The error clearly states it is missing permission for the identity/mail.nissan.co.jp resource. Once this is updated, the test should pass immediately.
-
-Thanks!
-
-Hi Sudharsan,
-
-Understood that using * might not be preferred. To follow the least privilege principle, could you please update the IAM policy to include the specific identities we are using?
-
-Based on the error logs, the policy needs to allow ses:SendEmail for both the domain and the specific email addresses. Please update the "Resource" section as follows:
+Since we cannot use *, could you please update the IAM policy for the task role (dproto-qa-ecs-task-ap-northeast-1) to explicitly allow the following resources? This should cover both the domain and our specific test emails:
 
 JSON
 "Resource": [
     "arn:aws:ses:ap-northeast-1:172761649922:identity/mail.nissan.co.jp",
     "arn:aws:ses:ap-northeast-1:172761649922:identity/yupeng-bie@mail.nissan.co.jp",
-    "arn:aws:ses:ap-northeast-1:172761649922:identity/第二位同事的邮箱",
-    "arn:aws:ses:ap-northeast-1:172761649922:identity/第三位同事的邮箱"
+    "arn:aws:ses:ap-northeast-1:172761649922:identity/[同事邮箱2]",
+    "arn:aws:ses:ap-northeast-1:172761649922:identity/[同事邮箱3]"
 ]
-This should resolve the "is not authorized" error we saw earlier, as it explicitly covers the domain resource mentioned in the logs. Please let me know once this is updated. Thanks!
+I suspect that without including the domain identity (mail.nissan.co.jp) in the resource list, IAM will keep denying the request even if the individual emails are verified.
+
+Could you please help update this? Once done, I’ll run the final test. Thanks!
