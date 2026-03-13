@@ -1,5 +1,22 @@
 Hi Sudharsan,
 
+Confirmed, the Task Role is indeed dproto-qa-ecs-task-ap-northeast-1.
+
+However, the error persists because of a Resource mismatch in the IAM policy. The logs show that the request is being evaluated against the domain identity. To fix this, please update the IAM policy for this role as follows:
+
+Option 1 (Quickest for testing):
+Change the Resource to "*" for the ses:SendEmail action.
+
+Option 2 (Specific Resource):
+If you must restrict it, please ensure the Domain Identity is included in the Resource list:
+"Resource": "arn:aws:ses:ap-northeast-1:172761649922:identity/mail.nissan.co.jp"
+
+The error clearly states it is missing permission for the identity/mail.nissan.co.jp resource. Once this is updated, the test should pass immediately.
+
+Thanks!
+
+Hi Sudharsan,
+
 Understood that using * might not be preferred. To follow the least privilege principle, could you please update the IAM policy to include the specific identities we are using?
 
 Based on the error logs, the policy needs to allow ses:SendEmail for both the domain and the specific email addresses. Please update the "Resource" section as follows:
