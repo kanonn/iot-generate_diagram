@@ -5,3 +5,76 @@ Thank you for the update. Since we are in the middle of a critical QA testing ph
 If it's possible for you to provide the required permissions manually in the meantime, that would be greatly appreciated! This will allow us to proceed with our service deployment tests immediately without waiting for the product-level update.
 
 Please let me know once the manual permissions are active. Thank you for your proactive support!
+
+
+
+
+
+frontend-task-definition.json
+{
+  "family": "dproto-qa-frontend",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::733155003398:role/dproto-qa-ecs-execution-role",
+  "taskRoleArn": "arn:aws:iam::733155003398:role/dproto-qa-ecs-task-ap-northeast-1",
+  "containerDefinitions": [
+    {
+      "name": "react-frontend",
+      "image": "733155003398.dkr.ecr.ap-northeast-1.amazonaws.com/dproto/qa/frontend:latest",
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/dproto-qa-frontend",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512"
+}
+aws ecs register-task-definition --cli-input-json file://frontend-task-definition.json
+
+create-frontend-service.json
+{
+    "cluster": "dproto-qa-cluster",
+    "serviceName": "dproto-qa-frontend-service",
+    "taskDefinition": "dproto-qa-frontend:1",
+    "loadBalancers": [
+        {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:ap-northeast-1:172761649922:targetgroup/SC-172-LoadB-MD71QCMXEAH/1b69f69784382894",
+            "containerName": "react-frontend",
+            "containerPort": 80
+        }
+    ],
+    "desiredCount": 1,
+    "launchType": "FARGATE",
+    "schedulingStrategy": "REPLICA",
+    "deploymentConfiguration": {
+        "maximumPercent": 200,
+        "minimumHealthyPercent": 100
+    },
+    "networkConfiguration": {
+        "awsvpcConfiguration": {
+            "subnets": [
+                "subnet-xxxxxxxxxxxxxxxxx",
+                "subnet-yyyyyyyyyyyyyyyyy"
+            ],
+            "securityGroups": [
+                "sg-zzzzzzzzzzzzzzzzz"
+            ],
+            "assignPublicIp": "ENABLED"
+        }
+    },
+    "platformVersion": "LATEST"
+}
+aws ecs create-service --cli-input-json file://create-frontend-service.json
+
