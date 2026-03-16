@@ -1,66 +1,9 @@
-既然是给 NDI 团队看的正式 Ticket，我们需要写得既专业又符合他们的流程规范，同时要把 Sudharsan 之前手动帮你解决的“临时方案”正式化。
+Hi Sudharsan,
 
-这份 Ticket 建议按照以下内容填写：
+**As discussed, I have raised the inquiry ticket to formally request the ECS Service and SES permissions. **
 
----
+Ticket Number: [这里填入你的Ticket单号，比如 INC1234567]
 
-## 🎫 Ticket Content Draft
+**This ticket covers the requirements for both the ECS Service management (Create/Update Service) and the SES email sending permissions for the dproto-qa environment. **
 
-### **Ticket Title (Subject)**
-
-`Request for ECS Service Management and SES Email Permissions - Project dproto (QA Environment)`
-
----
-
-### **1. Description / Summary**
-
-We are currently in the critical QA testing phase for the **dproto** project. To support the deployment of our microservices (Spring Boot backend and React frontend) on AWS Fargate, we require the formalization of IAM permissions for the following role and services.
-
-* **Target IAM Role:** `dproto-qa-ecs-task-ap-northeast-1`
-* **Cluster:** `dproto-qa-cluster`
-
----
-
-### **2. Requested Permissions**
-
-#### **A. ECS Service & Task Management**
-
-Required to manage the lifecycle of our frontend and backend services within the QA cluster.
-
-* `ecs:CreateService`
-* `ecs:UpdateService`
-* `ecs:DeleteService`
-* `ecs:RegisterTaskDefinition`
-* `ecs:ListTasks` / `ecs:DescribeServices`
-
-#### **B. SES (Simple Email Service)**
-
-Required for the Spring Boot backend to send notification emails.
-
-* `ses:SendEmail`
-* `ses:SendRawEmail`
-* **Authorized Identity:** `arn:aws:ses:ap-northeast-1:172761649922:identity/mail.nissan.co.jp` (and specific sub-identities for testers).
-
----
-
-### **3. Reason / Business Justification**
-
-1. **Service Orchestration:** We are transitioning from running standalone tasks to managing full **ECS Services** with ALB integration. This is necessary to ensure high availability and auto-recovery for the React and Spring Boot containers.
-2. **Notification Features:** The application requires SES permissions to send automated reports and alerts to Nissan internal email addresses as part of the core business logic.
-3. **Process Formalization:** Manual permissions were temporarily granted by the NDI team (Sudharsan) to unblock immediate testing. This ticket serves to formally document and maintain these requirements for the project's QA duration.
-
----
-
-### **4. Urgency**
-
-**High.** This is required to complete the ongoing QA integration testing and ALB verification scheduled for this week.
-
----
-
-## 💡 填写建议
-
-1. **关于 SES 资源**：我在上面特意写明了 `mail.nissan.co.jp` 那个域名资源。这是为了防止他们又只给你个人邮箱的权限，导致其他同事测试时报错。
-2. **关于 ECS 权限**：我加入了 `RegisterTaskDefinition`。因为你之后可能还要改端口或者内存，没有这个权限你没法生成 Revision 8, 9, 10。
-3. **后续动作**：提交完后，把这个 Ticket 的编号（比如 `INC123456`）直接发给 Sudharsan，跟他说：*"Hi Sudharsan, as discussed, I have raised the ticket [Ticket Number] to cover the ECS and SES permission requirements. Thanks!"*
-
-**你需要我现在帮你检查一下 React 前端的 `create-service.json` 文件，看看里面的 Subnet 和安全组配置是否正确吗？**
+Thank you again for your proactive help over the weekend. Please let me know if you need any further information from my side regarding this ticket.
