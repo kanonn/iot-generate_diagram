@@ -1,9 +1,11 @@
 Hi Sudharsan,
 
-**As discussed, I have raised the inquiry ticket to formally request the ECS Service and SES permissions. **
+I’ve reviewed the actual Security Group configuration for the ALB (sg-0a26cc696561acb98), and I found the critical issue causing the connectivity failure:
 
-Ticket Number: [这里填入你的Ticket单号，比如 INC1234567]
+Empty Inbound Rules: As shown in the attached screenshot (referencing your Image 3), there are ZERO inbound rules configured. This blocks all incoming traffic to the ALB.
 
-**This ticket covers the requirements for both the ECS Service management (Create/Update Service) and the SES email sending permissions for the dproto-qa environment. **
+Missing Port 443: Please add an Inbound Rule for HTTPS (Port 443) allowing traffic from our internal network / management EC2.
 
-Thank you again for your proactive help over the weekend. Please let me know if you need any further information from my side regarding this ticket.
+Could you please update the Inbound Rules for dproto-qa-alb-sg as per the application form? We cannot proceed with ALB verification until the "front door" is opened.
+
+Thanks!
