@@ -1,11 +1,13 @@
 Hi Sudharsan,
 
-I’ve reviewed the actual Security Group configuration for the ALB (sg-0a26cc696561acb98), and I found the critical issue causing the connectivity failure:
+Thanks for the explanation. I understand that AWS SGs require specific CIDR ranges.
 
-Empty Inbound Rules: As shown in the attached screenshot (referencing your Image 3), there are ZERO inbound rules configured. This blocks all incoming traffic to the ALB.
+Since my local VPN IP is dynamic and changes daily, please do not whitelist my individual IP. Instead, please whitelist our management/VDI network range, which is already used for EC2 access.
 
-Missing Port 443: Please add an Inbound Rule for HTTPS (Port 443) allowing traffic from our internal network / management EC2.
+Please add the following CIDR to the ALB Inbound Rules (Port 443):
 
-Could you please update the Inbound Rules for dproto-qa-alb-sg as per the application form? We cannot proceed with ALB verification until the "front door" is opened.
+10.14.176.0/22 (This range is already permitted in nml_mode2_remote_maintenance_sg and should cover our VDI access).
+
+If this range is not enough, could you please check the source CIDR used for the existing EC2 management rules and apply the same to the ALB? This will allow us to verify the application from our VDI browsers consistently.
 
 Thanks!
