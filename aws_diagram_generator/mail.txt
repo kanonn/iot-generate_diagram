@@ -200,3 +200,25 @@ docker push 733155003398.dkr.ecr.ap-northeast-1.amazonaws.com/dproto/qa/frontend
 * **环境变量**：如果你在构建时需要传入后端 API 的域名，可以在 `npm run build` 之前通过 `ARG` 传入。
 
 如果你现在已经准备好推送了，**需要我帮你写一段自动登录 ECR 并推送的完整 Shell 脚本吗？** 这样你以后改了代码一键就能发布。
+
+
+nginx.conf
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+        # 这一行是解决 404 问题的核心“魔法”
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 这里的配置确保前端调后端时，由于后端在 /api/ 下，不会被 Nginx 拦住
+    # 其实由于你有 ALB 做路径分发，这一段在 Nginx 里不加也可以
+    # 但为了保险，让 Nginx 遇到 500 等错误时有输出
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
