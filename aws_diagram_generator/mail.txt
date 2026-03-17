@@ -1,124 +1,30 @@
-package com.example.sns;
+Ticket 内容 (English)
+Subject: Request for Whitelisting VDI IP Addresses in ALB Security Group - [Project D-Proto QA]
 
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sns.SnsClient;
-import software.amazon.awssdk.services.sns.model.PublishRequest;
-import software.amazon.awssdk.services.sns.model.PublishResponse;
-import software.amazon.awssdk.services.sns.model.SubscribeRequest;
-import software.amazon.awssdk.services.sns.model.SubscribeResponse;
-import software.amazon.awssdk.services.sns.model.ListSubscriptionsByTopicRequest;
-import software.amazon.awssdk.services.sns.model.Subscription;
+Description:
 
-import java.util.List;
+Dear Team,
 
-/**
- * SNS経由でメール送信テスト（複数宛先対応）
- *
- * 使い方:
- *   環境変数を設定して実行
- *     SNS_TOPIC_ARN  : SNSトピックのARN (必須)
- *     SNS_EMAILS     : カンマ区切りで複数メールアドレス指定可能 (例: a@x.com,b@x.com)
- *     AWS_REGION     : AWSリージョン (デフォルト: ap-northeast-1)
- */
-public class SnsMailTest {
+As discussed regarding the access requirements for the D-Proto QA environment, kindly update the Inbound Rules for the Security Group associated with the Internal ALB (internal-dproto-qa-alb).
 
-    public static void main(String[] args) {
-        // ── 環境変数から設定を読み込む ──────────────────────────────
-        String topicArn  = System.getenv("SNS_TOPIC_ARN");
-        String emailsEnv = System.getenv("SNS_EMAILS");
-        String region    = System.getenv().getOrDefault("AWS_REGION", "ap-northeast-1");
+To ensure the project moves forward with verification and management review, we require the following VDI IP addresses to be whitelisted for Port 443 (HTTPS) and Port 80 (HTTP).
 
-        if (topicArn == null || topicArn.isBlank()) {
-            System.err.println("[ERROR] 環境変数 SNS_TOPIC_ARN が設定されていません。");
-            System.exit(1);
-        }
+Requested IP Addresses for Whitelisting:
 
-        System.out.println("=== SNS Mail Test (Multi Recipients) ===");
-        System.out.println("Region   : " + region);
-        System.out.println("TopicARN : " + topicArn);
+User/Developer IP: [Insert Your IP, e.g., 10.12.x.x]
 
-        // ── SNSクライアント生成 (Fargate上ではタスクロールで自動認証) ──
-        SnsClient snsClient = SnsClient.builder()
-                .region(Region.of(region))
-                .build();
+Management IP 1: [Insert Supervisor IP 1]
 
-        // ── 複数メールアドレスのサブスクリプション処理 ──────────────
-        if (emailsEnv != null && !emailsEnv.isBlank()) {
-            // カンマ区切りをパース、前後の空白を除去
-            String[] emails = emailsEnv.split(",");
-            System.out.println("\n対象メールアドレス数: " + emails.length);
+Management IP 2: [Insert Supervisor IP 2]
 
-            for (String rawEmail : emails) {
-                String email = rawEmail.trim();
-                if (email.isEmpty()) continue;
+Justification:
+These IP addresses belong to the core development and management team members who need to perform application testing, security verification, and UAT (User Acceptance Testing).
 
-                System.out.println("\n  処理中: " + email);
+Note on Future Access:
+Please be informed that additional access will be required for the client-side users and the wider development team at a later stage. As their specific IP details are currently being collected, I will raise a separate ticket for those requirements once the information is available.
 
-                boolean alreadySubscribed = isAlreadySubscribed(snsClient, topicArn, email);
-                if (!alreadySubscribed) {
-                    SubscribeResponse subscribeResponse = snsClient.subscribe(
-                            SubscribeRequest.builder()
-                                    .topicArn(topicArn)
-                                    .protocol("email")
-                                    .endpoint(email)
-                                    .build()
-                    );
-                    System.out.println("  [SUBSCRIBED] 確認メールを送信しました。承認してください。");
-                    System.out.println("               SubscriptionArn: " + subscribeResponse.subscriptionArn());
-                } else {
-                    System.out.println("  [SKIP] すでに登録済みです。");
-                }
-            }
-        }
+Kindly do the needful and update the security group at the earliest.
 
-        // ── SNSにメッセージをパブリッシュ ────────────────────────────
-        System.out.println("\nSNSにメッセージを送信中...");
+Regards,
 
-        String message = String.format(
-                "【SNSテスト】Fargateからのメール送信テスト\n\n" +
-                "このメッセージはAWS Fargate上のJavaアプリから送信されました。\n\n" +
-                "送信時刻: %s\n" +
-                "リージョン: %s\n" +
-                "トピックARN: %s",
-                java.time.LocalDateTime.now(),
-                region,
-                topicArn
-        );
-
-        PublishResponse publishResponse = snsClient.publish(
-                PublishRequest.builder()
-                        .topicArn(topicArn)
-                        .subject("【テスト】FargateからのSNSメール")
-                        .message(message)
-                        .build()
-        );
-
-        System.out.println("[SUCCESS] メッセージ送信完了！");
-        System.out.println("          MessageId: " + publishResponse.messageId());
-        System.out.println("          メールが届いているか確認してください。");
-
-        snsClient.close();
-    }
-
-    /**
-     * 指定メールアドレスがすでにサブスクリプション登録されているか確認
-     */
-    private static boolean isAlreadySubscribed(SnsClient snsClient, String topicArn, String email) {
-        try {
-            List<Subscription> subscriptions = snsClient.listSubscriptionsByTopic(
-                    ListSubscriptionsByTopicRequest.builder()
-                            .topicArn(topicArn)
-                            .build()
-            ).subscriptions();
-
-            return subscriptions.stream()
-                    .anyMatch(sub ->
-                            "email".equals(sub.protocol()) &&
-                            email.equalsIgnoreCase(sub.endpoint())
-                    );
-        } catch (Exception e) {
-            System.out.println("[WARN] サブスクリプション確認中にエラー: " + e.getMessage());
-            return false;
-        }
-    }
-}
+[Your Name]
