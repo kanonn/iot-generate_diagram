@@ -1,17 +1,21 @@
-Hi Team,
+Hi TVSO Team,
 
-Regarding the IP range for the ALB whitelisting, I have consulted with my management for internal feedback.
+I am working on the D-Proto QA project as the PoC Lead. We are currently setting up our environment and have run into a connectivity issue with the Internal ALB.
 
-Since our project shares the same corporate network environment as other existing projects within Mode 2, could you please check how those projects were configured for local/VPN access?
+The Situation:
+We need to whitelist our local VPN/VDI IP addresses in the Security Group to access the application. However, we've noticed that our VPN IPs are dynamic and frequently shift between different ranges (e.g., from 10.12.x.x yesterday to 10.31.x.x today). This makes individual IP whitelisting impossible to maintain.
 
-Specifically, could you confirm:
+The Question:
+Since our projects share the same corporate network environment, I was wondering how your team handled this for the TVSO project?
 
-What IP/CIDR ranges were whitelisted in the Security Groups for other Mode 2 projects?
+Did you whitelist a specific CIDR range (like a /16 or /12 block) to cover all possible VPN pools?
 
-Were they using a standardized corporate VPN range that we can also apply to our current project?
+If so, could you please share the IP ranges or the subnet information you used for your Security Group inbound rules?
 
-If we can follow the same settings as the other teams, it would ensure consistency and resolve our connectivity issue without needing to coordinate separately with the Network Team.
+Your experience would be very helpful for us to standardize our security configuration.
 
-Kindly check your records for these existing Mode 2 configurations and let us know.
+Thanks in advance for your help!
 
-Thanks!
+Best regards,
+[Your Name]
+PoC Lead, D-Proto Project
