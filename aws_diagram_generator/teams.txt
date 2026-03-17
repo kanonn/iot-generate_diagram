@@ -1,31 +1,10 @@
-To allow stable connectivity for the D-Proto PoC verification, we require an update to the Inbound Rules of the Security Group associated with the Internal ALB (internal-dproto-qa-alb).
+Teams 沟通内容 (English)
+Hi Sudharsan-san,
 
-Due to the dynamic assignment of VPN/VDI IP addresses within our corporate network, we are requesting to whitelist the following standard CIDR blocks instead of individual IPs. This approach has been reviewed and confirmed as technically reasonable by Ganesan Sudharsan via Teams.
+I have just submitted the new ticket for the CIDR whitelisting.
 
-Target CIDR Ranges (Source):
+Ticket ID: xxxx
 
-10.12.0.0/16
+I've attached the corporate network asset list to the ticket as we discussed. Please note that this is not an urgent request. Please feel free to look into it at your convenience—completing it tomorrow or the day after is perfectly fine.
 
-10.31.0.0/16
-
-10.16.0.0/16
-
-10.7.0.0/16
-
-Target Details:
-
-Destination: internal-dproto-qa-alb
-
-Ports: TCP 80, TCP 443
-
-Protocol: HTTP / HTTPS
-
-Supporting Evidence:
-Please find the attached "Corporate Network Asset List" (Network_Segment_List) which details these remote access pools.
-
-Justification:
-Whitelisting these ranges will facilitate consistent access for the PoC team and management, resolving the connectivity issues caused by IP rotation across different VPN gateways (NML, NFS, etc.).
-
-Kindly update the security group rules and let us know once the access is available.
-
-Regards,
+Thanks again for your support!
