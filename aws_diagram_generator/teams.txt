@@ -1,7 +1,12 @@
-Hi Sudharsan,
+Hi Team,
 
-Understood. Since the VPN IP is dynamic, whitelisting the entire IP range is definitely the right approach to ensure stable access.
+Regarding the ALB IP whitelisting request for the D-Proto QA environment, we have confirmed that the VPN/VDI IP addresses are assigned dynamically (changing between 10.12.x.x and 10.31.x.x).
 
-However, I do not have the contact information for the Network Team to confirm the official CIDR ranges. Do you happen to have their contact details or know which team I should reach out to? If so, please let me know so I can coordinate with them immediately.
+As individual IP whitelisting is no longer effective, please close the current ticket for the 10.12 and 10.31 addresses.
 
-Thanks!
+I will coordinate with our Network stakeholders to obtain the official CIDR range and will raise a fresh ticket once the fixed information is available.
+
+Thank you for your initial support and assistance on this.
+
+Best regards,
+[Your Name]
