@@ -1,224 +1,124 @@
-Hi Sudharsan,
+package com.example.sns;
 
-Thank you for the update. Since we are in the middle of a critical QA testing phase, it is quite urgent for us to have the ECS Service creation and management permissions.
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.PublishRequest;
+import software.amazon.awssdk.services.sns.model.PublishResponse;
+import software.amazon.awssdk.services.sns.model.SubscribeRequest;
+import software.amazon.awssdk.services.sns.model.SubscribeResponse;
+import software.amazon.awssdk.services.sns.model.ListSubscriptionsByTopicRequest;
+import software.amazon.awssdk.services.sns.model.Subscription;
 
-If it's possible for you to provide the required permissions manually in the meantime, that would be greatly appreciated! This will allow us to proceed with our service deployment tests immediately without waiting for the product-level update.
+import java.util.List;
 
-Please let me know once the manual permissions are active. Thank you for your proactive support!
+/**
+ * SNS経由でメール送信テスト（複数宛先対応）
+ *
+ * 使い方:
+ *   環境変数を設定して実行
+ *     SNS_TOPIC_ARN  : SNSトピックのARN (必須)
+ *     SNS_EMAILS     : カンマ区切りで複数メールアドレス指定可能 (例: a@x.com,b@x.com)
+ *     AWS_REGION     : AWSリージョン (デフォルト: ap-northeast-1)
+ */
+public class SnsMailTest {
 
+    public static void main(String[] args) {
+        // ── 環境変数から設定を読み込む ──────────────────────────────
+        String topicArn  = System.getenv("SNS_TOPIC_ARN");
+        String emailsEnv = System.getenv("SNS_EMAILS");
+        String region    = System.getenv().getOrDefault("AWS_REGION", "ap-northeast-1");
 
-
-
-
-frontend-task-definition.json
-{
-  "family": "dproto-qa-frontend",
-  "networkMode": "awsvpc",
-  "executionRoleArn": "arn:aws:iam::733155003398:role/dproto-qa-ecs-execution-role",
-  "taskRoleArn": "arn:aws:iam::733155003398:role/dproto-qa-ecs-task-ap-northeast-1",
-  "containerDefinitions": [
-    {
-      "name": "react-frontend",
-      "image": "733155003398.dkr.ecr.ap-northeast-1.amazonaws.com/dproto/qa/frontend:latest",
-      "portMappings": [
-        {
-          "containerPort": 80,
-          "protocol": "tcp"
+        if (topicArn == null || topicArn.isBlank()) {
+            System.err.println("[ERROR] 環境変数 SNS_TOPIC_ARN が設定されていません。");
+            System.exit(1);
         }
-      ],
-      "essential": true,
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/dproto-qa-frontend",
-          "awslogs-region": "ap-northeast-1",
-          "awslogs-stream-prefix": "ecs"
+
+        System.out.println("=== SNS Mail Test (Multi Recipients) ===");
+        System.out.println("Region   : " + region);
+        System.out.println("TopicARN : " + topicArn);
+
+        // ── SNSクライアント生成 (Fargate上ではタスクロールで自動認証) ──
+        SnsClient snsClient = SnsClient.builder()
+                .region(Region.of(region))
+                .build();
+
+        // ── 複数メールアドレスのサブスクリプション処理 ──────────────
+        if (emailsEnv != null && !emailsEnv.isBlank()) {
+            // カンマ区切りをパース、前後の空白を除去
+            String[] emails = emailsEnv.split(",");
+            System.out.println("\n対象メールアドレス数: " + emails.length);
+
+            for (String rawEmail : emails) {
+                String email = rawEmail.trim();
+                if (email.isEmpty()) continue;
+
+                System.out.println("\n  処理中: " + email);
+
+                boolean alreadySubscribed = isAlreadySubscribed(snsClient, topicArn, email);
+                if (!alreadySubscribed) {
+                    SubscribeResponse subscribeResponse = snsClient.subscribe(
+                            SubscribeRequest.builder()
+                                    .topicArn(topicArn)
+                                    .protocol("email")
+                                    .endpoint(email)
+                                    .build()
+                    );
+                    System.out.println("  [SUBSCRIBED] 確認メールを送信しました。承認してください。");
+                    System.out.println("               SubscriptionArn: " + subscribeResponse.subscriptionArn());
+                } else {
+                    System.out.println("  [SKIP] すでに登録済みです。");
+                }
+            }
         }
-      }
-    }
-  ],
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512"
-}
-aws ecs register-task-definition --cli-input-json file://frontend-task-definition.json
 
-create-frontend-service.json
-{
-    "cluster": "dproto-qa-cluster",
-    "serviceName": "dproto-qa-frontend-service",
-    "taskDefinition": "dproto-qa-frontend:1",
-    "loadBalancers": [
-        {
-            "targetGroupArn": "arn:aws:elasticloadbalancing:ap-northeast-1:172761649922:targetgroup/SC-172-LoadB-MD71QCMXEAH/1b69f69784382894",
-            "containerName": "react-frontend",
-            "containerPort": 80
-        }
-    ],
-    "desiredCount": 1,
-    "launchType": "FARGATE",
-    "schedulingStrategy": "REPLICA",
-    "deploymentConfiguration": {
-        "maximumPercent": 200,
-        "minimumHealthyPercent": 100
-    },
-    "networkConfiguration": {
-        "awsvpcConfiguration": {
-            "subnets": [
-                "subnet-xxxxxxxxxxxxxxxxx",
-                "subnet-yyyyyyyyyyyyyyyyy"
-            ],
-            "securityGroups": [
-                "sg-zzzzzzzzzzzzzzzzz"
-            ],
-            "assignPublicIp": "ENABLED"
-        }
-    },
-    "platformVersion": "LATEST"
-}
-aws ecs create-service --cli-input-json file://create-frontend-service.json
+        // ── SNSにメッセージをパブリッシュ ────────────────────────────
+        System.out.println("\nSNSにメッセージを送信中...");
 
+        String message = String.format(
+                "【SNSテスト】Fargateからのメール送信テスト\n\n" +
+                "このメッセージはAWS Fargate上のJavaアプリから送信されました。\n\n" +
+                "送信時刻: %s\n" +
+                "リージョン: %s\n" +
+                "トピックARN: %s",
+                java.time.LocalDateTime.now(),
+                region,
+                topicArn
+        );
 
+        PublishResponse publishResponse = snsClient.publish(
+                PublishRequest.builder()
+                        .topicArn(topicArn)
+                        .subject("【テスト】FargateからのSNSメール")
+                        .message(message)
+                        .build()
+        );
 
+        System.out.println("[SUCCESS] メッセージ送信完了！");
+        System.out.println("          MessageId: " + publishResponse.messageId());
+        System.out.println("          メールが届いているか確認してください。");
 
-========================
-Hi Sudharsan,
-
-Thank you so much for your support over the weekend! I really appreciate the manual permission update; it’s a huge help for our progress.
-
-**Regarding the tracking, I will raise the inquiry ticket immediately and share the ticket number with you once it's done. **
-
-Thanks again for going the extra mile on a Saturday! Have a great rest of your weekend.
-
-
-内容建议：Requesting manual ECS Service management permissions for dproto-qa-ecs-task-ap-northeast-1 role to support QA testing. (Tracked post-implementation as requested by Sudharsan).
-
-
-
-
-周一效率挺高啊！既然后端已经搞定了，前端 React 的 Docker 镜像创建其实非常标准化。
-
-虽然 React 只是前端，但把它塞进 Docker 还是得讲究一下“身材”（镜像大小）和“性能”。最专业的做法是**多阶段构建 (Multi-stage Build)**：先用 Node 镜像把代码编译出来，再把编译后的静态文件丢进轻量级的 Nginx 镜像里。
-
-这里有一个你可以直接拿去用的 `Dockerfile`：
-
-### 📄 1. 编写 Dockerfile
-
-在你的 React 项目根目录下创建一个名为 `Dockerfile` 的文件：
-
-```dockerfile
-# --- 第一阶段：构建 (Build) ---
-FROM node:18-alpine AS build-stage
-
-WORKDIR /app
-
-# 先复制 package.json 提高缓存效率
-COPY package*.json ./
-RUN npm install
-
-# 复制所有代码并打包
-COPY . .
-RUN npm run build
-
-# --- 第二阶段：生产环境 (Production) ---
-FROM nginx:stable-alpine
-
-# 将第一阶段生成的 build 文件夹内容复制到 Nginx 的默认静态资源目录
-COPY --from=build-stage /app/build /usr/share/nginx/html
-
-# ⚠️ 这一步很重要：把自定义的 Nginx 配置考进去，解决 React 路由 404 问题
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-
-```
-
----
-
-### 📄 2. 编写 nginx.conf (关键点)
-
-由于 React 是单页应用（SPA），如果用户刷新页面或者直接输入子路径，Nginx 会报 404。你需要一个简单的配置文件来处理路由跳转。
-
-在根目录下创建 `nginx.conf`：
-
-```nginx
-server {
-    listen 80;
-
-    location / {
-        root   /usr/share/nginx/html;
-        index  index.html index.htm;
-        # 核心：找不到文件时，统一转发到 index.html
-        try_files $uri $uri/ /index.html;
+        snsClient.close();
     }
 
-    # 如果有必要，你可以在这里加一些缓存控制
-    error_page   500 502 503 504  /50x.html;
-    location = /50x.html {
-        root   /usr/share/nginx/html;
-    }
-}
+    /**
+     * 指定メールアドレスがすでにサブスクリプション登録されているか確認
+     */
+    private static boolean isAlreadySubscribed(SnsClient snsClient, String topicArn, String email) {
+        try {
+            List<Subscription> subscriptions = snsClient.listSubscriptionsByTopic(
+                    ListSubscriptionsByTopicRequest.builder()
+                            .topicArn(topicArn)
+                            .build()
+            ).subscriptions();
 
-```
-
----
-
-### 🚀 3. 打包并推送到 ECR
-
-一切准备就绪后，执行以下命令：
-
-1. **打包镜像**：
-```bash
-docker build -t dproto-qa-frontend .
-
-```
-
-
-2. **标记镜像（Tag）**：
-```bash
-docker tag dproto-qa-frontend:latest 733155003398.dkr.ecr.ap-northeast-1.amazonaws.com/dproto/qa/frontend:latest
-
-```
-
-
-3. **推送镜像**：
-```bash
-# 记得先用 aws ecr get-login-password 登录
-docker push 733155003398.dkr.ecr.ap-northeast-1.amazonaws.com/dproto/qa/frontend:latest
-
-```
-
-
-
----
-
-### 💡 小提示：
-
-* **API 地址**：别忘了我之前提到的，React 里的 API 请求地址建议写成相对路径（如 `/api/user`），这样就不用担心跨域和端口问题了。
-* **环境变量**：如果你在构建时需要传入后端 API 的域名，可以在 `npm run build` 之前通过 `ARG` 传入。
-
-如果你现在已经准备好推送了，**需要我帮你写一段自动登录 ECR 并推送的完整 Shell 脚本吗？** 这样你以后改了代码一键就能发布。
-
-
-nginx.conf
-server {
-    listen 80;
-    server_name localhost;
-
-    location / {
-        root   /usr/share/nginx/html;
-        index  index.html index.htm;
-        # 这一行是解决 404 问题的核心“魔法”
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 这里的配置确保前端调后端时，由于后端在 /api/ 下，不会被 Nginx 拦住
-    # 其实由于你有 ALB 做路径分发，这一段在 Nginx 里不加也可以
-    # 但为了保险，让 Nginx 遇到 500 等错误时有输出
-    error_page   500 502 503 504  /50x.html;
-    location = /50x.html {
-        root   /usr/share/nginx/html;
+            return subscriptions.stream()
+                    .anyMatch(sub ->
+                            "email".equals(sub.protocol()) &&
+                            email.equalsIgnoreCase(sub.endpoint())
+                    );
+        } catch (Exception e) {
+            System.out.println("[WARN] サブスクリプション確認中にエラー: " + e.getMessage());
+            return false;
+        }
     }
 }

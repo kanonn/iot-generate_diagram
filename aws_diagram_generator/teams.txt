@@ -1,13 +1,93 @@
-Hi Sudharsan,
+# SES Mail Test - Fargate
 
-Thanks for the explanation. I understand that AWS SGs require specific CIDR ranges.
+Send emails via AWS SES v2 from a Fargate container to multiple recipients.
 
-Since my local VPN IP is dynamic and changes daily, please do not whitelist my individual IP. Instead, please whitelist our management/VDI network range, which is already used for EC2 access.
+---
 
-Please add the following CIDR to the ALB Inbound Rules (Port 443):
+## Prerequisites
 
-10.14.176.0/22 (This range is already permitted in nml_mode2_remote_maintenance_sg and should cover our VDI access).
+### 1. Verify sender address in SES
 
-If this range is not enough, could you please check the source CIDR used for the existing EC2 management rules and apply the same to the ALB? This will allow us to verify the application from our VDI browsers consistently.
+```bash
+aws sesv2 create-email-identity \
+  --email-identity your-sender@example.com \
+  --region ap-northeast-1
+```
+Check your inbox and click the verification link.
 
-Thanks!
+### 2. Verify recipient addresses (if SES is in sandbox mode)
+
+In sandbox mode, recipient addresses must also be verified.
+To leave sandbox mode, request production access from the AWS console.
+
+---
+
+## Environment Variables
+
+| Variable     | Required | Description |
+|--------------|----------|-------------|
+| `SES_FROM`   | Yes      | Verified sender email address |
+| `SES_TO`     | Yes      | Comma-separated recipient addresses (e.g. `a@x.com,b@x.com`) |
+| `AWS_REGION` | No       | AWS region (default: `ap-northeast-1`) |
+
+---
+
+## Local Test (Docker)
+
+```bash
+docker build -t ses-fargate-test .
+
+docker run --rm \
+  -e SES_FROM="sender@example.com" \
+  -e SES_TO="alice@example.com,bob@example.com" \
+  -e AWS_REGION="ap-northeast-1" \
+  -e AWS_ACCESS_KEY_ID="your-key" \
+  -e AWS_SECRET_ACCESS_KEY="your-secret" \
+  ses-fargate-test
+```
+
+---
+
+## Deploy to Fargate
+
+### 1. Push image to ECR
+
+```bash
+aws ecr create-repository --repository-name ses-fargate-test --region ap-northeast-1
+
+aws ecr get-login-password --region ap-northeast-1 | \
+  docker login --username AWS --password-stdin 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com
+
+docker tag ses-fargate-test:latest \
+  123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/ses-fargate-test:latest
+
+docker push 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/ses-fargate-test:latest
+```
+
+### 2. IAM Task Role Policy
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "ses:SendEmail",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### 3. Task Definition Environment Variables
+
+```json
+[
+  { "name": "SES_FROM",   "value": "sender@example.com" },
+  { "name": "SES_TO",     "value": "alice@example.com,bob@example.com" },
+  { "name": "AWS_REGION", "value": "ap-northeast-1" }
+]
+```
+
+On Fargate, the IAM task role handles authentication automatically.
+No AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY needed.
