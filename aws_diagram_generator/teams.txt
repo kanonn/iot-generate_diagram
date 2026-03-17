@@ -1,35 +1,43 @@
-Hi [对方名字/Team],
+Hi Team,
 
-Thank you so much for sharing the IP list! This is incredibly helpful and exactly what we were looking for.
+We have reviewed the official corporate network asset list to ensure we cover all potential VPN/VDI IP ranges.
 
-I will cross-check these ranges with our current environment to see if they cover our dynamic VPN pools. Appreciate your support and for helping us move the PoC forward!
+To avoid connectivity issues caused by dynamic IP assignment across different VPN pools (NML, NFS, etc.), please whitelist the following Standard Remote Access CIDR ranges in the ALB Security Group:
 
-Best regards,
-[Your Name]
+10.12.0.0/16
+
+10.31.0.0/16
+
+10.16.0.0/16
+
+10.7.0.0/16
+
+Justification:
+These ranges represent the standardized pools for corporate remote access and VDI environments. Our project team and management frequently rotate between these segments depending on the VPN gateway assignment. Whitelisting these CIDRs will provide a stable environment for our PoC verification.
+
+Thanks!
 
 
-件名： 【ご相談】AWS Security Group設定用：社内VPN/VDIのIPアドレス範囲（CIDR）の確認依頼
 
-サポートチーム御中
 
-お疲れ様です。
-D-ProtoプロジェクトにてPoC検証を担当しております[您的名字]です。
-上長より、環境構築に関する技術的な相談が可能と伺い、ご連絡いたしました。
 
-現在、AWS上に構築した検証環境（Internal ALB）へのアクセス制御を、Security GroupのIPホワイトリストにて運用しております。しかしながら、以下の課題が発生しており、対応に苦慮しております。
+Teams 沟通内容 (English)
+Hi Sudharsan / Team,
 
-【現在の課題】
-VPN接続時のクライアントIPアドレスが動的に割り当てられており、接続のたびに範囲が変動します。
-（例：昨日は 10.12.x.x、本日は 10.31.x.x 等）
-そのため、個別のIP登録では検証作業に支障をきたしております。
+Regarding the IP whitelisting issue, I have coordinated internally and obtained the official Corporate Network Asset List (the source document).
 
-【ご相談事項】
-検証を円滑に進めるため、以下のいずれかについてご教示、またはご提案いただけないでしょうか。
+As my connection falls under the NML (Normal) and standard remote access categories, I have analyzed the document and summarized the following 4 major CIDR blocks that cover our dynamic VPN pools:
 
-VPN/VDIのIPアドレス範囲（CIDR）の共有
-Security Groupに一括登録するための、社内VPN/VDIが取り得る全てのIPアドレス範囲（10.x.x.x/16 等）をご教示いただけますでしょうか。
+10.12.0.0/16
 
-代替案のご提案
-上記のような動的IP環境において、特定のプロジェクトチームや管理職が安定してInternal ALBにアクセスするための、推奨されるベストプラクティス（他のゲートウェイの利用や、特定のサブネットの利用など）がございましたらアドバイスをいただけますと幸いです。
+10.31.0.0/16
 
-お忙しいところ恐縮ですが、PoCのスケジュールに影響が出ているため、ご確認いただけますようお願い申し上げます。
+10.16.0.0/16
+
+10.7.0.0/16
+
+Would whitelisting these 4 CIDR ranges be acceptable from your side?
+
+If yes, I will create a fresh ticket for this and attach the official network asset document as supporting evidence for your verification. Please let me know your thoughts before I proceed with the ticket.
+
+Thanks!
