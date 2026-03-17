@@ -1,12 +1,17 @@
 Hi Team,
 
-Regarding the ALB IP whitelisting request for the D-Proto QA environment, we have confirmed that the VPN/VDI IP addresses are assigned dynamically (changing between 10.12.x.x and 10.31.x.x).
+Regarding the IP range for the ALB whitelisting, I have consulted with my management for internal feedback.
 
-As individual IP whitelisting is no longer effective, please close the current ticket for the 10.12 and 10.31 addresses.
+Since our project shares the same corporate network environment as other existing projects within Mode 2, could you please check how those projects were configured for local/VPN access?
 
-I will coordinate with our Network stakeholders to obtain the official CIDR range and will raise a fresh ticket once the fixed information is available.
+Specifically, could you confirm:
 
-Thank you for your initial support and assistance on this.
+What IP/CIDR ranges were whitelisted in the Security Groups for other Mode 2 projects?
 
-Best regards,
-[Your Name]
+Were they using a standardized corporate VPN range that we can also apply to our current project?
+
+If we can follow the same settings as the other teams, it would ensure consistency and resolve our connectivity issue without needing to coordinate separately with the Network Team.
+
+Kindly check your records for these existing Mode 2 configurations and let us know.
+
+Thanks!
