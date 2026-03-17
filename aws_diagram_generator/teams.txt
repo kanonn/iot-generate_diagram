@@ -1,8 +1,8 @@
-Hi Team,
+To allow stable connectivity for the D-Proto PoC verification, we require an update to the Inbound Rules of the Security Group associated with the Internal ALB (internal-dproto-qa-alb).
 
-We have reviewed the official corporate network asset list to ensure we cover all potential VPN/VDI IP ranges.
+Due to the dynamic assignment of VPN/VDI IP addresses within our corporate network, we are requesting to whitelist the following standard CIDR blocks instead of individual IPs. This approach has been reviewed and confirmed as technically reasonable by Ganesan Sudharsan via Teams.
 
-To avoid connectivity issues caused by dynamic IP assignment across different VPN pools (NML, NFS, etc.), please whitelist the following Standard Remote Access CIDR ranges in the ALB Security Group:
+Target CIDR Ranges (Source):
 
 10.12.0.0/16
 
@@ -11,33 +11,21 @@ To avoid connectivity issues caused by dynamic IP assignment across different VP
 10.16.0.0/16
 
 10.7.0.0/16
+
+Target Details:
+
+Destination: internal-dproto-qa-alb
+
+Ports: TCP 80, TCP 443
+
+Protocol: HTTP / HTTPS
+
+Supporting Evidence:
+Please find the attached "Corporate Network Asset List" (Network_Segment_List) which details these remote access pools.
 
 Justification:
-These ranges represent the standardized pools for corporate remote access and VDI environments. Our project team and management frequently rotate between these segments depending on the VPN gateway assignment. Whitelisting these CIDRs will provide a stable environment for our PoC verification.
+Whitelisting these ranges will facilitate consistent access for the PoC team and management, resolving the connectivity issues caused by IP rotation across different VPN gateways (NML, NFS, etc.).
 
-Thanks!
+Kindly update the security group rules and let us know once the access is available.
 
-
-
-
-
-Teams 沟通内容 (English)
-Hi Sudharsan / Team,
-
-Regarding the IP whitelisting issue, I have coordinated internally and obtained the official Corporate Network Asset List (the source document).
-
-As my connection falls under the NML (Normal) and standard remote access categories, I have analyzed the document and summarized the following 4 major CIDR blocks that cover our dynamic VPN pools:
-
-10.12.0.0/16
-
-10.31.0.0/16
-
-10.16.0.0/16
-
-10.7.0.0/16
-
-Would whitelisting these 4 CIDR ranges be acceptable from your side?
-
-If yes, I will create a fresh ticket for this and attach the official network asset document as supporting evidence for your verification. Please let me know your thoughts before I proceed with the ticket.
-
-Thanks!
+Regards,
