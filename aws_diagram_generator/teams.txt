@@ -1,26 +1,11 @@
-Subject: Inquiry regarding VPN IP Range Discovery for ALB Security Groups
+Hi [对方名字/Team],
 
-Hi TVSO Team,
+Thank you so much for sharing the IP list! This is incredibly helpful and exactly what we were looking for.
 
-I am the PoC Lead for the D-Proto project. We are currently facing a challenge where our VPN IPs are dynamic (frequently shifting between ranges like 10.12.x.x and 10.31.x.x), which makes ALB Security Group whitelisting difficult.
-
-I’ve had a look at your project's Security Group settings for reference, but it seems our environment/subnets are different, so we cannot apply the same rules directly.
-
-Could you please share how your team obtained the official CIDR/IP range information for your project? Specifically, we would like to know:
-
-Did you receive this information from a specific Network/Infrastructure team? (If so, could you share the contact or team name?)
-
-Is there an internal portal or document where these corporate VPN ranges are listed?
-
-Or did you raise a specific request/ticket to have these ranges identified for your environment?
-
-Knowing your method of discovery will help us follow the same process to identify the correct ranges for our PoC verification.
-
-Thanks in advance for your guidance!
+I will cross-check these ranges with our current environment to see if they cover our dynamic VPN pools. Appreciate your support and for helping us move the PoC forward!
 
 Best regards,
 [Your Name]
-PoC Lead, D-Proto Project
 
 
 件名： 【ご相談】AWS Security Group設定用：社内VPN/VDIのIPアドレス範囲（CIDR）の確認依頼
