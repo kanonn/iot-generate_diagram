@@ -1,30 +1,12 @@
-Ticket 内容 (English)
-Subject: Request for Whitelisting VDI IP Addresses in ALB Security Group - [Project D-Proto QA]
+Hi Sudharsan,
 
-Description:
+Thanks again for your support with the ALB network connectivity yesterday.
 
-Dear Team,
+I have just submitted the official ticket for the IP whitelisting as we discussed.
+Ticket ID: AAA
 
-As discussed regarding the access requirements for the D-Proto QA environment, kindly update the Inbound Rules for the Security Group associated with the Internal ALB (internal-dproto-qa-alb).
+In addition to my IP, my managers also need to access the application for PoC verification and sign-off. Therefore, I have included their VPN IP addresses in the same ticket.
 
-To ensure the project moves forward with verification and management review, we require the following VDI IP addresses to be whitelisted for Port 443 (HTTPS) and Port 80 (HTTP).
+Kindly check the ticket and whitelist all the listed IPs at your earliest convenience.
 
-Requested IP Addresses for Whitelisting:
-
-User/Developer IP: [Insert Your IP, e.g., 10.12.x.x]
-
-Management IP 1: [Insert Supervisor IP 1]
-
-Management IP 2: [Insert Supervisor IP 2]
-
-Justification:
-These IP addresses belong to the core development and management team members who need to perform application testing, security verification, and UAT (User Acceptance Testing).
-
-Note on Future Access:
-Please be informed that additional access will be required for the client-side users and the wider development team at a later stage. As their specific IP details are currently being collected, I will raise a separate ticket for those requirements once the information is available.
-
-Kindly do the needful and update the security group at the earliest.
-
-Regards,
-
-[Your Name]
+Thanks!
