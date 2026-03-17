@@ -1,24 +1,27 @@
+Subject: Inquiry regarding VPN IP Range Discovery for ALB Security Groups
+
 Hi TVSO Team,
 
-I am working on the D-Proto QA project as the PoC Lead. We are currently setting up our environment and have run into a connectivity issue with the Internal ALB.
+I am the PoC Lead for the D-Proto project. We are currently facing a challenge where our VPN IPs are dynamic (frequently shifting between ranges like 10.12.x.x and 10.31.x.x), which makes ALB Security Group whitelisting difficult.
 
-The Situation:
-We need to whitelist our local VPN/VDI IP addresses in the Security Group to access the application. However, we've noticed that our VPN IPs are dynamic and frequently shift between different ranges (e.g., from 10.12.x.x yesterday to 10.31.x.x today). This makes individual IP whitelisting impossible to maintain.
+I’ve had a look at your project's Security Group settings for reference, but it seems our environment/subnets are different, so we cannot apply the same rules directly.
 
-The Question:
-Since our projects share the same corporate network environment, I was wondering how your team handled this for the TVSO project?
+Could you please share how your team obtained the official CIDR/IP range information for your project? Specifically, we would like to know:
 
-Did you whitelist a specific CIDR range (like a /16 or /12 block) to cover all possible VPN pools?
+Did you receive this information from a specific Network/Infrastructure team? (If so, could you share the contact or team name?)
 
-If so, could you please share the IP ranges or the subnet information you used for your Security Group inbound rules?
+Is there an internal portal or document where these corporate VPN ranges are listed?
 
-Your experience would be very helpful for us to standardize our security configuration.
+Or did you raise a specific request/ticket to have these ranges identified for your environment?
 
-Thanks in advance for your help!
+Knowing your method of discovery will help us follow the same process to identify the correct ranges for our PoC verification.
+
+Thanks in advance for your guidance!
 
 Best regards,
 [Your Name]
 PoC Lead, D-Proto Project
+
 
 件名： 【ご相談】AWS Security Group設定用：社内VPN/VDIのIPアドレス範囲（CIDR）の確認依頼
 
