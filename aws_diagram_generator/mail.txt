@@ -1,12 +1,14 @@
 Hi Sudharsan,
 
-Thanks again for your support with the ALB network connectivity yesterday.
+Regarding the IP whitelisting for the ALB, it appears there is a slight issue with the VPN configuration. Although we discussed that the IP should be static, my VPN IP has changed today from the 10.12 range to the 10.31 range.
 
-I have just submitted the official ticket for the IP whitelisting as we discussed.
-Ticket ID: AAA
+I am attaching the screenshots from yesterday and today for your reference.
 
-In addition to my IP, my managers also need to access the application for PoC verification and sign-off. Therefore, I have included their VPN IP addresses in the same ticket.
+Since whitelisting individual IPs will lead to repeated access issues every time the VPN reconnects, it will significantly delay our PoC verification.
 
-Kindly check the ticket and whitelist all the listed IPs at your earliest convenience.
+Could we consider whitelisting a broader CIDR range instead of specific IPs?
+For example, would it be possible to whitelist the internal range such as 10.0.0.0/8 (or the specific subnets used by the Corporate VPN/VDI)?
+
+Kindly suggest the best way to ensure stable access for the PoC team and management.
 
 Thanks!
