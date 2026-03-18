@@ -1,23 +1,14 @@
-English:
-Hi Team,
+[对方姓氏]様
 
-Thank you for the quick turnaround and support.
+お疲れ様です、D-Protoプロジェクトの[您的名字]です。
 
-I have verified the connectivity from my side, and the ALB is now accessible across the dynamic VPN ranges as expected. Everything is working perfectly.
+先ほど、CloudOpsチームによるIPホワイトリストの追加作業が完了いたしました。
+今回の対応により、社内VPN/VDI環境からのアクセスが可能となっております。
 
-Since I do not have the permissions to close the ticket myself, could you please proceed to close it from your side?
+お忙しいところ恐縮ですが、お客様の環境から以下のPoC用Fargateページにアクセスできるか、ご確認をいただけますでしょうか。
 
-Thanks again for your assistance!
+■PoC環境URL
+https://xxxxxxxxxxxxxxxxxxxx
 
-Best regards,
-[Your Name]
-
-2. Teams 沟通文案（告诉 Sudharsan）
-English:
-Hi Sudharsan-san,
-
-I just checked the ALB access, and it works perfectly!
-
-Thank you so much for the quick support and for whitelisting those CIDR ranges. This stable setup will be a huge help for our PoC.
-
-I’ve left a comment on the ticket to confirm the fix, so please feel free to have the team close it. Appreciate your help!
+もし接続できない等の不具合がございましたら、至急対応いたしますのでお知らせください。
+引き続き、何卒よろしくお願い申し上げます。
