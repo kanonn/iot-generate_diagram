@@ -1,17 +1,6 @@
-FROM eclipse-temurin:21-jre-jammy
-
-# 1. 安装 fontconfig（Ubuntu 环境下的字体管理工具）
-RUN apt-get update && apt-get install -y \
-    fontconfig \
-    && rm -rf /var/lib/apt/lists/*
-
-# 2. 创建存放微软字体的目录
-# Ubuntu 的标准路径通常是 /usr/share/fonts/truetype/
-RUN mkdir -p /usr/share/fonts/truetype/windows
-
-# 3. 将你本地的 msgothic.ttc 拷贝进去
-# 请确保 msgothic.ttc 文件放在 Dockerfile 同级目录下
-COPY msgothic.ttc /usr/share/fonts/truetype/windows/
-
-# 4. 刷新字体缓存，让系统识别到 MS P Gothic
-RUN fc-cache -f -v
+# 使用官方重定向链接，并增加鲁棒性参数
+RUN wget --tries=5 --timeout=60 --no-check-certificate \
+    "https://download.documentfoundation.org/libreoffice/stable/25.8.4/rpm/x86_64/LibreOffice_25.8.4_Linux_x86-64_rpm.tar.gz" \
+    -O /tmp/libreoffice.tar.gz && \
+    tar -xzf /tmp/libreoffice.tar.gz -C /tmp && \
+    # ...后续安装逻辑
