@@ -1,12 +1,2 @@
-COPY LibreOffice_25.8.5_Linux_x86-64_rpm.tar.gz /tmp/libreoffice.tar.gz
-
-# 3. 解压并安装
-RUN cd /tmp && \
-    tar -xzf libreoffice.tar.gz && \
-    # 进入解压后的 RPM 目录
-    cd LibreOffice_25.8*_rpm/RPMS && \
-    yum localinstall -y *.rpm && \
-    # 建立软链接，方便你在 Java 代码里直接调用 'libreoffice'
-    ln -sf /opt/libreoffice25.8/program/soffice /usr/local/bin/libreoffice && \
-    # 清理安装包，减小镜像体积
-    rm -rf /tmp/*
+COPY fonts/ /usr/share/fonts/windows/
+RUN fc-cache -fv
