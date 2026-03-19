@@ -1,14 +1,17 @@
-# 假设你使用的是基于 Amazon Linux 2 的基础镜像
-FROM public.ecr.aws/amazonlinux/amazonlinux:2
+FROM eclipse-temurin:21-jre-jammy
 
-# 安装 fontconfig 工具，这是 Linux 管理字体的基础
-RUN yum install -y fontconfig xorg-x11-font-utils
+# 1. 安装 fontconfig（Ubuntu 环境下的字体管理工具）
+RUN apt-get update && apt-get install -y \
+    fontconfig \
+    && rm -rf /var/lib/apt/lists/*
 
-# 创建字体目录
-RUN mkdir -p /usr/share/fonts/windows
+# 2. 创建存放微软字体的目录
+# Ubuntu 的标准路径通常是 /usr/share/fonts/truetype/
+RUN mkdir -p /usr/share/fonts/truetype/windows
 
-# 将你本地的字体文件拷贝进去 (假设你把 msgothic.ttc 放在了 Dockerfile 同级目录下)
-COPY msgothic.ttc /usr/share/fonts/windows/
+# 3. 将你本地的 msgothic.ttc 拷贝进去
+# 请确保 msgothic.ttc 文件放在 Dockerfile 同级目录下
+COPY msgothic.ttc /usr/share/fonts/truetype/windows/
 
-# 刷新系统字体缓存
+# 4. 刷新字体缓存，让系统识别到 MS P Gothic
 RUN fc-cache -f -v
