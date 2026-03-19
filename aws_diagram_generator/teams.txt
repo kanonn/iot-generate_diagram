@@ -1,10 +1,1 @@
-Teams 沟通内容 (English)
-Hi Sudharsan-san,
-
-I have just submitted the new ticket for the CIDR whitelisting.
-
-Ticket ID: xxxx
-
-I've attached the corporate network asset list to the ticket as we discussed. Please note that this is not an urgent request. Please feel free to look into it at your convenience—completing it tomorrow or the day after is perfectly fine.
-
-Thanks again for your support!
+fontFamily: "Consolas, 'Courier New', 'MS Gothic', monospace",
