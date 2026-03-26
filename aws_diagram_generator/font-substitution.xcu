@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LibreOffice Font Substitution Configuration
+  
+  Location: Copy to /opt/libreoffice25.8/share/registry/ or user config
+  
+  This maps Windows Japanese fonts to available Linux fonts.
+  Note: Font metrics (width, height, kerning) will differ, so layout issues are expected.
+-->
+<oor:items xmlns:oor="http://openoffice.org/2001/registry"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    
+  <item oor:path="/org.openoffice.Office.Common/Font/Substitution">
+    <node oor:name="FontPairs" oor:op="fuse">
+      
+      <!-- MS Gothic family -> Noto Sans CJK JP -->
+      <node oor:name="msgothic_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>MS Gothic</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP</value></prop>
+      </node>
+      
+      <node oor:name="mspgothic_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>MS PGothic</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP</value></prop>
+      </node>
+      
+      <node oor:name="msuigothic_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>MS UI Gothic</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP</value></prop>
+      </node>
+      
+      <!-- MS Mincho family -> Noto Serif CJK JP -->
+      <node oor:name="msmincho_notoserif" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>MS Mincho</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Serif CJK JP</value></prop>
+      </node>
+      
+      <node oor:name="mspmincho_notoserif" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>MS PMincho</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Serif CJK JP</value></prop>
+      </node>
+      
+      <!-- Meiryo -> Noto Sans CJK JP -->
+      <node oor:name="meiryo_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>Meiryo</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP</value></prop>
+      </node>
+      
+      <node oor:name="meiryoui_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>Meiryo UI</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP</value></prop>
+      </node>
+      
+      <!-- Yu Gothic -> Noto Sans CJK JP -->
+      <node oor:name="yugothic_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>Yu Gothic</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP</value></prop>
+      </node>
+      
+      <node oor:name="yugothicui_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>Yu Gothic UI</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP</value></prop>
+      </node>
+      
+      <!-- Yu Mincho -> Noto Serif CJK JP -->
+      <node oor:name="yumincho_notoserif" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>Yu Mincho</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Serif CJK JP</value></prop>
+      </node>
+      
+      <!-- HG fonts (commonly used in Japanese business docs) -->
+      <node oor:name="hggothicb_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>HGGothicB</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP Bold</value></prop>
+      </node>
+      
+      <node oor:name="hgpgothicb_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>HGPGothicB</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK JP Bold</value></prop>
+      </node>
+      
+      <!-- SimSun (Chinese but sometimes used) -> Noto Sans CJK SC -->
+      <node oor:name="simsun_notosans" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>SimSun</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>Noto Sans CJK SC</value></prop>
+      </node>
+      
+      <!-- Arial/Times -> DejaVu (common Western fonts) -->
+      <node oor:name="arial_dejavu" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>Arial</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>DejaVu Sans</value></prop>
+      </node>
+      
+      <node oor:name="times_dejavu" oor:op="fuse">
+        <prop oor:name="Always" oor:type="xs:boolean"><value>true</value></prop>
+        <prop oor:name="OnScreenOnly" oor:type="xs:boolean"><value>false</value></prop>
+        <prop oor:name="ReplaceFont" oor:type="xs:string"><value>Times New Roman</value></prop>
+        <prop oor:name="SubstituteFont" oor:type="xs:string"><value>DejaVu Serif</value></prop>
+      </node>
+      
+    </node>
+  </item>
+  
+</oor:items>
