@@ -3,12 +3,16 @@ FROM amazonlinux:2023
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 
-# Install dependencies
+# Java
+RUN dnf install -y java-21-amazon-corretto-devel
+
+# Locale
+RUN dnf install -y glibc-langpack-en
+
+# X11 libraries
 RUN dnf install -y \
-    java-21-amazon-corretto-devel \
-    glibc-langpack-en \
-    libX11-xcb \
     libX11 \
+    libX11-xcb \
     libXrender \
     libXext \
     libXinerama \
@@ -17,7 +21,10 @@ RUN dnf install -y \
     libXrandr \
     libSM \
     libICE \
-    libXt \
+    libXt
+
+# Graphics libraries
+RUN dnf install -y \
     fontconfig \
     cups-libs \
     nss \
@@ -26,21 +33,27 @@ RUN dnf install -y \
     atk \
     at-spi2-atk \
     gdk-pixbuf2 \
-    gtk3 \
-    openssl \
-    openssl-libs \
-    tar \
-    gzip \
-    # Japanese fonts - Noto CJK (Google)
-    google-noto-sans-cjk-fonts \
-    google-noto-serif-cjk-fonts \
-    # Western fonts - DejaVu
+    gtk3
+
+# SSL
+RUN dnf install -y openssl openssl-libs
+
+# Archive tools
+RUN dnf install -y tar gzip
+
+# Japanese fonts (Noto CJK)
+RUN dnf install -y google-noto-sans-cjk-fonts
+
+# Western fonts (DejaVu)
+RUN dnf install -y \
     dejavu-sans-fonts \
     dejavu-serif-fonts \
-    dejavu-sans-mono-fonts \
-    && dnf clean all
+    dejavu-sans-mono-fonts
 
-# Copy pre-downloaded LibreOffice from build context
+# Clean up
+RUN dnf clean all
+
+# Copy pre-downloaded LibreOffice
 COPY LibreOffice_25.8.5_Linux_x86-64_rpm.tar.gz /tmp/
 
 # Install LibreOffice
@@ -54,23 +67,19 @@ RUN cd /tmp \
 RUN ln -sf /opt/libreoffice25.8/program/soffice /usr/local/bin/libreoffice \
     || ln -sf /opt/libreoffice25.8.5/program/soffice /usr/local/bin/libreoffice
 
-# ============================================================
-# Font Substitution Configuration (fontconfig)
-# Maps Windows fonts to Linux fonts at system level
-# ============================================================
+# Font substitution configuration
 COPY 99-ms-fonts-substitution.conf /etc/fonts/conf.d/
 
 # Update font cache
 RUN fc-cache -fv
 
-# Verify font substitution is working
-RUN echo "Checking font substitution..." && \
+# Verify font substitution
+RUN echo "=== Font substitution check ===" && \
     fc-match "MS Gothic" && \
     fc-match "MS PGothic" && \
-    fc-match "Meiryo" && \
-    fc-match "Arial"
+    fc-match "Meiryo"
 
-# Verify LibreOffice installation
+# Verify LibreOffice
 RUN /usr/local/bin/libreoffice --version
 
 # Copy application
