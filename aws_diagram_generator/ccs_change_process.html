@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCS O&M Change Management Process</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --border: #2a2f3e;
+    --text: #e2e8f0;
+    --text-muted: #8892a4;
+
+    --phase-intake: #1a3a5c;
+    --phase-intake-accent: #3b82f6;
+    --phase-resolution: #1a3d2e;
+    --phase-resolution-accent: #10b981;
+    --phase-closure: #3d2a1a;
+    --phase-closure-accent: #f59e0b;
+
+    --lane-user: #1e2235;
+    --lane-cc: #1e2a35;
+    --lane-l1: #202035;
+    --lane-l2: #1e2832;
+    --lane-l3: #1e3028;
+    --lane-sm: #2a2420;
+    --lane-other: #252020;
+    --lane-ib1: #20252a;
+
+    --node-default: #252b3b;
+    --node-border: #3a4255;
+    --node-diamond: #2a2035;
+    --node-diamond-border: #7c3aed;
+    --arrow: #4a5568;
+    --arrow-active: #60a5fa;
+
+    --radius: 6px;
+    --font: 'IBM Plex Sans', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-left { display: flex; flex-direction: column; gap: 8px; }
+  .doc-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--phase-intake-accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  h1 span { color: var(--text-muted); font-weight: 300; }
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+  .legend-diamond {
+    width: 10px; height: 10px;
+    background: var(--node-diamond);
+    border: 1px solid var(--node-diamond-border);
+    transform: rotate(45deg);
+  }
+
+  /* ── Phase tabs ── */
+  .phase-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .phase-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .phase-tab.intake  { background: var(--phase-intake);  border-color: var(--phase-intake-accent);  color: #93c5fd; }
+  .phase-tab.resolution { background: var(--phase-resolution); border-color: var(--phase-resolution-accent); color: #6ee7b7; }
+  .phase-tab.closure { background: var(--phase-closure);  border-color: var(--phase-closure-accent);  color: #fcd34d; }
+  .phase-tab .num {
+    font-family: var(--mono);
+    font-size: 10px;
+    opacity: 0.7;
+  }
+  .phase-tab:hover { opacity: 0.85; }
+
+  /* ── Swimlane Table ── */
+  .swim-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  table {
+    border-collapse: collapse;
+    min-width: 1100px;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  /* Header rows */
+  .th-participant {
+    background: #161a26;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 8px 4px;
+    border: 1px solid var(--border);
+  }
+  .th-group {
+    background: #161a26;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+  }
+  .th-group.user   { color: #93c5fd; }
+  .th-group.ccs    { color: #6ee7b7; }
+  .th-group.other  { color: #fcd34d; }
+
+  .th-lane {
+    font-size: 10px;
+    font-weight: 500;
+    text-align: center;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    writing-mode: horizontal-tb;
+    color: var(--text-muted);
+    background: #161a26;
+  }
+
+  /* Phase label column */
+  .col-no    { width: 40px; }
+  .col-phase { width: 80px; }
+  .col-lane  { width: 120px; }
+
+  /* Row styles */
+  tr { border-bottom: 1px solid var(--border); }
+
+  td {
+    border: 1px solid var(--border);
+    vertical-align: middle;
+    padding: 6px 8px;
+    font-size: 11.5px;
+  }
+
+  .td-no {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: #161a26;
+    width: 40px;
+  }
+  .td-phase {
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    width: 80px;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 0.08em;
+    padding: 10px 4px;
+  }
+  .td-phase.intake     { background: var(--phase-intake);     color: #93c5fd; border-left: 3px solid var(--phase-intake-accent); }
+  .td-phase.resolution { background: var(--phase-resolution); color: #6ee7b7; border-left: 3px solid var(--phase-resolution-accent); }
+  .td-phase.closure    { background: var(--phase-closure);    color: #fcd34d; border-left: 3px solid var(--phase-closure-accent); }
+
+  /* Lane cells */
+  .lane-user   { background: var(--lane-user); }
+  .lane-cc     { background: var(--lane-cc); }
+  .lane-l1     { background: var(--lane-l1); }
+  .lane-l2     { background: var(--lane-l2); }
+  .lane-l3     { background: var(--lane-l3); }
+  .lane-sm     { background: var(--lane-sm); }
+  .lane-other  { background: var(--lane-other); }
+  .lane-ib1    { background: var(--lane-ib1); }
+
+  /* Flow nodes */
+  .node {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--node-default);
+    border: 1px solid var(--node-border);
+    border-radius: var(--radius);
+    padding: 5px 9px;
+    font-size: 11px;
+    line-height: 1.35;
+    max-width: 100%;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    cursor: default;
+  }
+  .node:hover {
+    border-color: #5a6278;
+    box-shadow: 0 0 0 2px rgba(96,165,250,0.1);
+  }
+  .node.intake-node     { border-left: 3px solid var(--phase-intake-accent); }
+  .node.resolution-node { border-left: 3px solid var(--phase-resolution-accent); }
+  .node.closure-node    { border-left: 3px solid var(--phase-closure-accent); }
+  .node.trigger-node    { border-left: 3px solid #a78bfa; background: #1e1a35; }
+
+  .node-diamond {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--node-diamond);
+    border: 1px solid var(--node-diamond-border);
+    border-radius: 3px;
+    padding: 5px 9px;
+    font-size: 11px;
+    transform: none;
+    position: relative;
+    cursor: default;
+    transition: border-color 0.2s;
+  }
+  .node-diamond::before {
+    content: '◆';
+    font-size: 8px;
+    color: var(--node-diamond-border);
+    margin-right: 4px;
+  }
+  .node-diamond:hover { border-color: #a78bfa; }
+
+  .node-oval {
+    display: inline-flex;
+    align-items: center;
+    background: #1e1535;
+    border: 1px solid #6d28d9;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    cursor: default;
+  }
+
+  /* Arrow indicators */
+  .arrow-down  { text-align: center; color: var(--arrow); font-size: 14px; line-height: 1; padding: 2px 0; }
+  .arrow-right { display: inline; color: var(--arrow); margin: 0 4px; }
+
+  /* Step number badge */
+  .step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .step-badge.intake     { background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.4); }
+  .step-badge.resolution { background: rgba(16,185,129,0.2); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
+  .step-badge.closure    { background: rgba(245,158,11,0.2);  color: #fcd34d; border: 1px solid rgba(245,158,11,0.4); }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    font-size: 9px;
+    font-family: var(--mono);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .tag-high   { background: rgba(239,68,68,0.2);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+  .tag-mid    { background: rgba(245,158,11,0.2); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+  .tag-low    { background: rgba(16,185,129,0.2); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+  .tag-alert  { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+  .tag-ok     { background: rgba(16,185,129,0.15);color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+
+  /* Flow connector cell */
+  .flow-cell {
+    text-align: center;
+    vertical-align: middle;
+    padding: 4px;
+  }
+  .flow-line {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* Tooltip */
+  .node[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0d1117;
+    border: 1px solid #3a4255;
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: pre-line;
+    width: max-content;
+    max-width: 220px;
+    z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  /* Highlight row on hover */
+  tr:hover > td { background-color: rgba(255,255,255,0.02) !important; }
+
+  /* Section separator */
+  .sep-row td {
+    padding: 2px;
+    background: linear-gradient(90deg, var(--phase-intake-accent), var(--phase-resolution-accent));
+    height: 2px;
+    border: none;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    body { padding: 16px 12px; }
+    h1 { font-size: 16px; }
+    .legend { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <span class="doc-tag">CCS O&amp;M · Change Management</span>
+    <h1>Change Process Flow <span>/ 変更プロセス</span></h1>
+    <p class="subtitle">Swimlane diagram — Participant × Process Steps</p>
+  </div>
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#3b82f6;"></div>
+      Change Intake
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#10b981;"></div>
+      Change Resolution
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#f59e0b;"></div>
+      Change Closure
+    </div>
+    <div class="legend-item">
+      <div class="legend-diamond"></div>
+      Decision Gate
+    </div>
+  </div>
+</div>
+
+<!-- Phase summary tabs -->
+<div class="phase-bar">
+  <div class="phase-tab intake"><span class="num">Steps 0–5</span> 📥 Change Intake</div>
+  <div class="phase-tab resolution"><span class="num">Steps 6–13</span> 🔧 Change Resolution</div>
+  <div class="phase-tab closure"><span class="num">Steps 14–18</span> ✅ Change Closure</div>
+</div>
+
+<!-- Swimlane -->
+<div class="swim-wrap">
+<table>
+  <!-- Column groups -->
+  <colgroup>
+    <col style="width:36px">   <!-- No -->
+    <col style="width:72px">   <!-- Sub-process -->
+    <col style="width:90px">   <!-- Vehicle Owner / end user -->
+    <col style="width:90px">   <!-- Region CCS Team / ZNTC -->
+    <col style="width:90px">   <!-- Plant DCM -->
+    <col style="width:90px">   <!-- Call Center NML Region -->
+    <col style="width:72px">   <!-- L1 -->
+    <col style="width:120px">  <!-- L2 -->
+    <col style="width:130px">  <!-- L3 -->
+    <col style="width:130px">  <!-- Service Manager -->
+    <col style="width:130px">  <!-- Other OPER Team -->
+    <col style="width:110px">  <!-- IB1 / Related -->
+  </colgroup>
+
+  <!-- Row 1: Participant label -->
+  <thead>
+  <tr>
+    <td class="th-participant" colspan="2"></td>
+    <td class="th-participant th-group user" colspan="3">User</td>
+    <td class="th-participant th-group" style="color:#a78bfa;">Call Center</td>
+    <td class="th-participant th-group ccs" colspan="4">CCS O&amp;M Team</td>
+    <td class="th-participant th-group other" colspan="2">Other Team / Related</td>
+  </tr>
+  <!-- Row 2: Role labels -->
+  <tr>
+    <td class="th-lane" style="width:36px">No.</td>
+    <td class="th-lane">Sub-Process</td>
+    <td class="th-lane">Vehicle Owner<br><small style="opacity:.6">end user</small></td>
+    <td class="th-lane">Region CCS Team<br><small style="opacity:.6">ZNTC/NTC</small></td>
+    <td class="th-lane">Plant<br><small style="opacity:.6">DCM System</small></td>
+    <td class="th-lane">Call Center<br><small style="opacity:.6">NML Region</small></td>
+    <td class="th-lane">L1<br><small style="opacity:.6">NML Reg</small></td>
+    <td class="th-lane">L2<br><small style="opacity:.6">LY</small></td>
+    <td class="th-lane">L3<br><small style="opacity:.6">LY</small></td>
+    <td class="th-lane">Service Manager<br><small style="opacity:.6">LY</small></td>
+    <td class="th-lane">Other OPER Team<br><small style="opacity:.6">ZNTC/DNTC/MNO/3rd</small></td>
+    <td class="th-lane">IB1 / System Owner<br><small style="opacity:.6">Related Process</small></td>
+  </tr>
+  </thead>
+
+  <tbody>
+
+  <!-- ══════════════ PHASE 1: CHANGE INTAKE ══════════════ -->
+
+  <!-- Step 0 -->
+  <tr>
+    <td class="td-no">0</td>
+    <td class="td-phase intake" rowspan="6">Change<br>Intake</td>
+    <td class="lane-user flow-cell">
+      <div class="node intake-node" data-tip="Authorization required\nfrom vehicle owner side">
+        <span class="step-badge intake">0</span> Authorization
+      </div>
+    </td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2 flow-cell">
+      <div class="node intake-node">Prod Data Access Request</div>
+    </td>
+    <td class="lane-l3"></td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 1 -->
+  <tr>
+    <td class="td-no">1</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc flow-cell">
+      <div class="node trigger-node" data-tip="Other CR sources also\ninitiate via L2">
+        <span class="step-badge intake">1</span> Other CR
+      </div>
+    </td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3"></td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1 flow-cell">
+      <div class="node" style="border-left:3px solid #a78bfa; font-size:10px;">
+        📋 Incident management process
+      </div>
+      <div style="margin-top:4px;">
+        <div class="node" style="border-left:3px solid #a78bfa; font-size:10px;">
+          📋 Problem management process
+        </div>
+      </div>
+    </td>
+  </tr>
+
+  <!-- Step 2 -->
+  <tr>
+    <td class="td-no">2</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2 flow-cell">
+      <div class="node intake-node" data-tip="Log change request details\nConfirm source:\n· Link incident/problem ticket ID\n· Specify other sources">
+        <span class="step-badge intake">2</span> Create Change Ticket
+      </div>
+    </td>
+    <td class="lane-l3"></td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 3 -->
+  <tr>
+    <td class="td-no">3</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2 flow-cell">
+      <div class="node-diamond" data-tip="Determine impact per Change Matrix">
+        <span class="step-badge intake">3</span> Initial Impact Assessment
+      </div>
+      <div style="margin-top:4px; font-size:10px; color: var(--text-muted); text-align:center;">
+        <span class="tag tag-mid">Mid</span> <span class="tag tag-high">High</span> → review ↗
+      </div>
+      <div style="font-size:10px; color: var(--text-muted); text-align:center;">
+        <span class="tag tag-low">Low</span> → assign directly
+      </div>
+    </td>
+    <td class="lane-l3"></td>
+    <td class="lane-sm flow-cell">
+      <div class="node intake-node" style="font-size:10px;" data-tip="Service Manager reviews\nMid/High impact requests">
+        Impact Review
+      </div>
+    </td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1 flow-cell">
+      <div style="font-size:10px; color: var(--text-muted);">Final Confirmation<br><small>(Region)</small></div>
+    </td>
+  </tr>
+
+  <!-- Step 4 -->
+  <tr>
+    <td class="td-no">4</td>
+    <td class="lane-user"></td>
+    <td class="lane-user flow-cell">
+      <div class="node-diamond" style="font-size:10px;">
+        <span class="step-badge intake">4</span> Change Confirmation
+      </div>
+      <div style="font-size:10px; color:#fca5a5; margin-top:3px;">
+        No → Review rejected<br>Redesign plan
+      </div>
+    </td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2 flow-cell">
+      <div style="font-size:10px; color: var(--text-muted);">Region finalizes<br>Mid/High → assign to L2</div>
+    </td>
+    <td class="lane-l3"></td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1 flow-cell">
+      <div class="node" style="border:1px solid #ef4444; font-size:10px; color:#fca5a5; background:#2a1515;">
+        ⚠ Need Confirm with IB1
+      </div>
+    </td>
+  </tr>
+
+  <!-- Step 5 -->
+  <tr>
+    <td class="td-no">5</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node intake-node" data-tip="Assign ticket based on change type\nL3 takes ownership">
+        <span class="step-badge intake">5</span> Assign to L3
+      </div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Phase separator -->
+  <tr class="sep-row"><td colspan="12"></td></tr>
+
+  <!-- ══════════════ PHASE 2: CHANGE RESOLUTION ══════════════ -->
+
+  <!-- Step 6 -->
+  <tr>
+    <td class="td-no">6</td>
+    <td class="td-phase resolution" rowspan="8">Change<br>Resolution</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node-diamond" style="font-size:10px;" data-tip="Determine if external team\ncollaboration is needed">
+        <span class="step-badge resolution">6</span> Collaboration Needed?
+      </div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 7 -->
+  <tr>
+    <td class="td-no">7</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node resolution-node" data-tip="Develop coordination plan\nand countermeasures based\non the problem and requirements">
+        <span class="step-badge resolution">7</span> Collaborative Countermeasure
+      </div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other flow-cell">
+      <div class="node resolution-node" style="font-size:10px;">
+        Collaborative Countermeasure
+      </div>
+    </td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 8 -->
+  <tr>
+    <td class="td-no">8</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node resolution-node" data-tip="Create the solution\n(Develop temporary solution)">
+        <span class="step-badge resolution">8</span> Develop Temporary Solution
+      </div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other flow-cell">
+      <div class="node resolution-node" style="font-size:10px;">
+        Develop Temporary Solution
+      </div>
+    </td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 9 -->
+  <tr>
+    <td class="td-no">9</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node resolution-node" data-tip="Implementer defines:\n· Team\n· Tasks\n· Method\n· Schedule\nper Change Plan Template">
+        <span class="step-badge resolution">9</span> Change Plan Design
+      </div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 10 -->
+  <tr>
+    <td class="td-no">10</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node resolution-node" data-tip="Conduct preliminary\nplan validation">
+        <span class="step-badge resolution">10</span> Plan Verification
+      </div>
+      <div style="font-size:10px; color:#fca5a5; margin-top:3px;">No → redesign ↑</div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 11 -->
+  <tr>
+    <td class="td-no">11</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node resolution-node" data-tip="Preliminary impact rating\nSubmit to Service Manager\nAssess plan based on validation">
+        <span class="step-badge resolution">11</span> Impact Classification
+      </div>
+    </td>
+    <td class="lane-sm flow-cell">
+      <div class="node resolution-node" style="font-size:10px;" data-tip="Service Manager approves\nor escalates to Region">
+        Review &amp; Approve
+      </div>
+    </td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 12 -->
+  <tr>
+    <td class="td-no">12</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3"></td>
+    <td class="lane-sm flow-cell">
+      <div class="node resolution-node" data-tip="High-impact: submit to Region for approval\nMedium-impact: Plan Manager decides before execution">
+        <span class="step-badge resolution">12</span> Impact Review Result
+        <div style="margin-top:4px; font-size:9px;">
+          <span class="tag tag-high">High</span> → Region approval<br>
+          <span class="tag tag-mid">Mid</span> → Plan Manager decides
+        </div>
+      </div>
+    </td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 13 -->
+  <tr>
+    <td class="td-no">13</td>
+    <td class="lane-user"></td>
+    <td class="lane-user flow-cell">
+      <div class="node resolution-node" style="font-size:10px;" data-tip="Region performs final plan rating\nReject → redesign\nApprove → proceed">
+        <span class="step-badge resolution">13</span> Change Confirm
+      </div>
+      <div style="font-size:10px; color:#fca5a5; margin-top:3px;">No → Review rejected<br>Redesign plan ↑</div>
+    </td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3"></td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1 flow-cell">
+      <div style="font-size:10px; color: var(--text-muted);">Final<br>Confirmation</div>
+    </td>
+  </tr>
+
+  <!-- Phase separator -->
+  <tr class="sep-row"><td colspan="12"></td></tr>
+
+  <!-- ══════════════ PHASE 3: CHANGE CLOSURE ══════════════ -->
+
+  <!-- Step 14 -->
+  <tr>
+    <td class="td-no">14</td>
+    <td class="td-phase closure" rowspan="5">Change<br>Closure</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node closure-node" data-tip="Implementer accepts ticket in ops platform\nSnapshot all related configuration items">
+        <span class="step-badge closure">14</span> Change Implementation
+      </div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 15 -->
+  <tr>
+    <td class="td-no">15</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node-diamond" data-tip="Verify change success post-implementation\nImplementer confirms outcome per plan verification method">
+        <span class="step-badge closure">15</span> Release Success Check
+      </div>
+      <div style="font-size:10px; color:#fca5a5; margin-top:3px;">No → rollback ↓</div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 16 -->
+  <tr>
+    <td class="td-no">16</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node" style="border-left:3px solid #ef4444; background:#2a1515;" data-tip="If change fails:\nExecute rollback plan\nper change plan">
+        <span class="step-badge closure">16</span> Execute Rollback Plan
+        <span class="tag tag-alert">if fail</span>
+      </div>
+    </td>
+    <td class="lane-sm flow-cell">
+      <div class="node" style="font-size:10px; border-left:3px solid #ef4444; background:#2a1515;">
+        Rollback Plan Review
+      </div>
+    </td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 17 -->
+  <tr>
+    <td class="td-no">17</td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node closure-node" data-tip="If successful:\nUpdate change ticket details\nService Manager confirms result\nthen closes change ticket">
+        <span class="step-badge closure">17</span> Change Completed &amp; Close Ticket
+        <span class="tag tag-ok">if success</span>
+      </div>
+    </td>
+    <td class="lane-sm flow-cell">
+      <div class="node closure-node" style="font-size:10px;" data-tip="Service Manager confirms result\nthen closes the change ticket">
+        Confirm Change Completion
+      </div>
+    </td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1"></td>
+  </tr>
+
+  <!-- Step 18 -->
+  <tr>
+    <td class="td-no">18</td>
+    <td class="lane-user"></td>
+    <td class="lane-user flow-cell">
+      <div class="node closure-node" style="font-size:10px;">
+        Change Result Report
+      </div>
+    </td>
+    <td class="lane-user"></td>
+    <td class="lane-cc"></td>
+    <td class="lane-l1"></td>
+    <td class="lane-l2"></td>
+    <td class="lane-l3 flow-cell">
+      <div class="node closure-node" data-tip="Notify stakeholders via email\nwith change results">
+        <span class="step-badge closure">18</span> Email Notification
+      </div>
+    </td>
+    <td class="lane-sm"></td>
+    <td class="lane-other"></td>
+    <td class="lane-ib1 flow-cell">
+      <div style="font-size:10px; color: var(--text-muted);">Report<br>Confirmation</div>
+    </td>
+  </tr>
+
+  </tbody>
+</table>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <span>CCS O&amp;M · Duty &amp; Process · Change Management Flow</span>
+  <span>Hover nodes for details · Steps 0–18</span>
+</div>
+
+<script>
+  // Highlight active row on click
+  document.querySelectorAll('tbody tr').forEach(row => {
+    row.addEventListener('click', () => {
+      document.querySelectorAll('tbody tr').forEach(r => r.style.outline = '');
+      row.style.outline = '1px solid rgba(96,165,250,0.4)';
+    });
+  });
+</script>
+
+</body>
+</html>
